@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>V-Track | Driver Login</title>
+	<link rel="stylesheet" href="driver.css" />
+	<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+</head>
+<body>
+	<div class="driver-app" style="max-width:420px;margin:40px auto;padding:24px;background:#111;color:#fff;border-radius:12px;">
+		<h2 style="margin:0 0 12px 0;">Driver Login</h2>
+		<p style="margin:0 0 16px 0;opacity:0.8;">Sign in with your driver account</p>
+		<div style="display:flex;flex-direction:column;gap:12px;">
+			<input id="email" type="email" placeholder="Email" style="padding:12px;border-radius:8px;border:1px solid #333;background:#151515;color:#fff;" />
+			<input id="password" type="password" placeholder="Password" style="padding:12px;border-radius:8px;border:1px solid #333;background:#151515;color:#fff;" />
+			<button id="loginBtn" style="padding:12px;border:none;border-radius:8px;background:#4CAF50;color:#fff;cursor:pointer;">Login</button>
+			<div id="loginMsg" style="min-height:18px;color:#f66;"></div>
+		</div>
+	</div>
+
+	<script>
+		const firebaseConfig = {
+			apiKey: "AIzaSyBZpFhPq1pFpvTmyndOnA6SRs9_ftb4jfI",
+			authDomain: "v-track-gu999.firebaseapp.com",
+			databaseURL: "https://v-track-gu999-default-rtdb.firebaseio.com",
+			projectId: "v-track-gu999",
+			storageBucket: "v-track-gu999.appspot.com",
+			messagingSenderId: "1046512747961",
+			appId: "1:1046512747961:web:80df40c48bca3159296268",
+			measurementId: "G-38X29VT1YT"
+		};
+		if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+		const auth = firebase.auth();
+		const db = firebase.database();
+
+		document.getElementById('loginBtn').addEventListener('click', async () => {
+			const email = document.getElementById('email').value.trim();
+			const password = document.getElementById('password').value.trim();
+			const msg = document.getElementById('loginMsg');
+			msg.textContent = '';
+			try {
+				const cred = await auth.signInWithEmailAndPassword(email, password);
+				const uid = cred.user.uid;
+				try { localStorage.setItem('vtrack_driver_uid', uid); } catch(e) {}
+				// Fetch assigned bus/route
+				const snap = await db.ref(`driverInfo/${uid}`).once('value');
+				const d = snap.val() || {};
+				if (d.assignedBusId) try { localStorage.setItem('v-track-driver-busId', d.assignedBusId); } catch(e) {}
+				window.location.href = 'driver-profile.html';
+			} catch (e) {
+				msg.textContent = e.message || 'Login failed';
+			}
+		});
+	</script>
+</body>
+</html>
+
+

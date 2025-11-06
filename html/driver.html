@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>V-Track | Driver Dashboard</title>
+        <link rel="stylesheet" href="../css/driver.css" />
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        />
+        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    </head>
+    <body>
+        <div class="driver-app">
+            <!-- Header -->
+            <header class="driver-header">
+                <div class="header-left">
+                    <h1>V-Track</h1>
+                    <p class="subtitle">Driver Dashboard</p>
+                </div>
+                <div class="header-right">
+                    <div class="status online">🟢 Connected</div>
+                    <span id="busLabel">Bus: —</span>
+                    <span
+                        id="busCounter"
+                        style="
+                            margin-left: 15px;
+                            color: #22c55e;
+                            font-weight: 600;
+                        "
+                    >
+                        🚌 <span id="onlineBusCount">0</span> buses online
+                    </span>
+                </div>
+            </header>
+
+            <!-- Map Section -->
+            <section class="map-area">
+                <div class="map-placeholder">
+                    <p>🗺️ Map Loading...</p>
+                </div>
+
+                <!-- On-map Info Bar -->
+                <div class="map-overlay">
+                    <div class="map-info">
+                        <span>Route: Pokhara → Suklaphanta</span>
+                        <span>ETA: 15 mins</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Driver Controls -->
+            <section class="driver-controls">
+                <button class="control primary">Start</button>
+                <button class="control stop">Stop</button>
+                <button class="control route">Route</button>
+                <button class="control alert">Alerts</button>
+                <button class="control focus" id="focusBtn">Focus Mode</button>
+                <button
+                    class="control"
+                    id="toggleAllBusesBtn"
+                    style="background: #10b981"
+                >
+                    🗺️ Show All Buses
+                </button>
+            </section>
+
+            <!-- Driver Assist Info -->
+            <section class="driver-panel">
+                <h3>🎯 Driver Assist</h3>
+                <div class="assist-info">
+                    <div class="assist-item">
+                        <span>Next Stop:</span>
+                        <strong>Shree Public School</strong>
+                    </div>
+                    <div class="assist-item">
+                        <span>Students Ahead:</span>
+                        <strong>5</strong>
+                    </div>
+                    <div class="assist-item">
+                        <span>Traffic Status:</span>
+                        <strong>Clear</strong>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Notices -->
+            <section class="notice-section">
+                <h3>📢 Notices & Alerts</h3>
+                <div class="notice-list">
+                    <div class="notice info">
+                        <p>All systems normal.</p>
+                        <span>Now</span>
+                    </div>
+                    <div class="notice warning">
+                        <p>Student pickup ahead (300m).</p>
+                        <span>2 mins ago</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Focus Mode -->
+            <section class="focus-mode" id="focusMode">
+                <div class="focus-topbar">
+                    <button class="exit-focus" id="exitFocus">✖</button>
+                    <h2>🚗 Focus Mode</h2>
+                </div>
+
+                <!-- Expanded Map Area -->
+                <div class="focus-map">
+                    <div class="map-placeholder big">
+                        <p>🗺️ Focus Map View</p>
+                    </div>
+                </div>
+
+                <!-- Focus Details -->
+                <div class="focus-details">
+                    <div class="focus-card">
+                        <h4>Next Stop</h4>
+                        <p>Shree Public School</p>
+                    </div>
+                    <div class="focus-card">
+                        <h4>Students Ahead</h4>
+                        <p>5 Students (800m ahead)</p>
+                    </div>
+                    <div class="focus-card alert">
+                        <h4>Active Alert</h4>
+                        <p>🚸 Student pickup in 200m — Slow down</p>
+                    </div>
+                </div>
+
+                <!-- Quick Settings -->
+                <div class="focus-utils">
+                    <button class="util-btn">🌙 Night Mode</button>
+                    <button class="util-btn">🧭 Navigation Hints</button>
+                    <button class="util-btn">🛠 Settings</button>
+                </div>
+            </section>
+
+            <!-- Bottom Nav -->
+            <nav class="bottom-nav">
+                <button class="nav-btn active">Map</button>
+                <button class="nav-btn">Route</button>
+                <button class="nav-btn">Students</button>
+                <button class="nav-btn">Alerts</button>
+                <button class="nav-btn">Profile</button>
+            </nav>
+        </div>
+        <div
+            id="connectionIndicator"
+            style="
+                display: none;
+                background: #2b2b2b;
+                color: white;
+                padding: 8px;
+                border-radius: 6px;
+                margin: 10px;
+            "
+        >
+            Connected Bus: <span id="connectedBusId">N/A</span>
+        </div>
+
+        <script>
+            const navButtons = document.querySelectorAll(".nav-btn");
+
+            const pages = {
+                map: "driver.html",
+                route: "driver-route.html",
+                students: "driver-students.html",
+                alerts: "driver-others.html",
+                profile: "driver-profile.html",
+            };
+
+            navButtons.forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const target = btn.textContent.trim().toLowerCase();
+                    const destination = pages[target];
+                    if (destination) {
+                        // Highlight active tab
+                        navButtons.forEach((b) => b.classList.remove("active"));
+                        btn.classList.add("active");
+
+                        // Redirect (with smooth transition)
+                        document.body.classList.add("fade-out");
+                        setTimeout(() => {
+                            window.location.href = destination;
+                        }, 200);
+                    } else {
+                        console.warn("Unknown navigation option:", target);
+                    }
+                });
+            });
+        </script>
+
+        <style>
+            body.fade-out {
+                opacity: 0;
+                transition: opacity 0.3s ease;
+            }
+        </style>
+
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script src="../js/firebase.js"></script>
+        <script src="../js/utils.js"></script>
+        <script src="../js/map.js"></script>
+        <script src="../js/app-bootstrap.js"></script>
+        <script src="../js/pages/common-bindings.js"></script>
+        <!-- Smart Tracker Module -->
+        <script src="../js/smart-tracker.js"></script>
+        <script src="../js/tracker-integration.js"></script>
+        <script src="../js/tracker-monitor.js"></script>
+        <script src="../js/multi-bus-map.js"></script>
+        <script src="../js/driver.js"></script>
+
+        <!-- Initialize Monitor (Optional - for debugging) -->
+        <script>
+            // Multi-Bus Map Toggle
+            let showingAllBuses = false;
+            const toggleBtn = document.getElementById("toggleAllBusesBtn");
+
+            if (toggleBtn) {
+                toggleBtn.addEventListener("click", () => {
+                    showingAllBuses = !showingAllBuses;
+
+                    if (showingAllBuses) {
+                        // Initialize multi-bus map
+                        const map =
+                            window.map ||
+                            (window.VTMapAPI &&
+                                window.VTMapAPI._state &&
+                                window.VTMapAPI._state.map);
+                        const busId =
+                            window.currentBusId ||
+                            localStorage.getItem("v-track-driver-busId");
+
+                        if (map && busId && window.MultiBusMap) {
+                            MultiBusMap.initialize(map, busId);
+                            toggleBtn.textContent = "🗺️ Hide Other Buses";
+                            toggleBtn.style.background = "#ef4444";
+
+                            // Update bus counter periodically
+                            setInterval(() => {
+                                if (MultiBusMap.isEnabled()) {
+                                    const count = MultiBusMap.getOnlineCount();
+                                    document.getElementById(
+                                        "onlineBusCount",
+                                    ).textContent = count;
+                                }
+                            }, 5000);
+                        }
+                    } else {
+                        // Stop multi-bus map
+                        if (window.MultiBusMap) {
+                            MultiBusMap.stop();
+                            toggleBtn.textContent = "🗺️ Show All Buses";
+                            toggleBtn.style.background = "#10b981";
+                            document.getElementById(
+                                "onlineBusCount",
+                            ).textContent = "0";
+                        }
+                    }
+                });
+            }
+
+            // Uncomment to enable real-time monitoring widget
+            // TrackerMonitor.initialize();
+            // TrackerMonitor.createWidget();
+
+            // Or use keyboard shortcut: Press Ctrl+M to toggle monitor
+            document.addEventListener("keydown", (e) => {
+                if (e.ctrlKey && e.key === "m") {
+                    if (document.getElementById("tracker-monitor-widget")) {
+                        TrackerMonitor.hideWidget();
+                    } else {
+                        if (!TrackerMonitor.isEnabled()) {
+                            TrackerMonitor.initialize();
+                        }
+                        TrackerMonitor.createWidget();
+                    }
+                }
+
+                // Press Ctrl+B to toggle all buses
+                if (e.ctrlKey && e.key === "b") {
+                    if (toggleBtn) toggleBtn.click();
+                }
+            });
+
+            console.log(
+                "%c🚀 Smart Tracker Ready!",
+                "color: #22c55e; font-size: 16px; font-weight: bold;",
+            );
+            console.log(
+                "%cPress Ctrl+M to toggle monitoring widget",
+                "color: #3b82f6; font-size: 12px;",
+            );
+            console.log(
+                "%cPress Ctrl+B to toggle all buses on map",
+                "color: #10b981; font-size: 12px;",
+            );
+            console.log(
+                "%cDemo: Open tracker-demo.html for live visualization",
+                "color: #3b82f6; font-size: 12px;",
+            );
+            console.log(
+                "%cComparison: Open tracker-comparison.html to see the difference",
+                "color: #3b82f6; font-size: 12px;",
+            );
+        </script>
+    </body>
+</html>

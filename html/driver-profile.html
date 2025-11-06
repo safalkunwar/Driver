@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>V-Track | Driver Profile</title>
+  <link rel="stylesheet" href="../css/driver-profile.css" />
+  <link rel="stylesheet" href="../css/driver.css"/>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+</head>
+<body>
+  <div class="driver-profile-app">
+
+    <!-- Header -->
+    <header class="profile-header">
+      <h1>👤 Driver Profile</h1>
+      <button class="back-btn" onclick="window.history.back()">← Back</button>
+    </header>
+
+    <!-- Driver Info Section -->
+    <section class="driver-info">
+      <div class="profile-photo">
+        <img src="https://cdn-icons-png.flaticon.com/512/219/219983.png" alt="Driver" />
+      </div>
+      <h2>Ramesh Thapa</h2>
+      <p class="role">Bus Driver</p>
+
+      <div class="info-list">
+        <div class="info-item"><span>ID:</span> <strong>DRV-1023</strong></div>
+        <div class="info-item"><span>Bus:</span> <strong>Bus-01</strong></div>
+        <div class="info-item"><span>Contact:</span> <strong>980XXXXXXX</strong></div>
+        <div class="info-item"><span>Shift Time:</span> <strong>6:30 AM – 2:30 PM</strong></div>
+        <div class="info-item"><span>Route:</span> <strong>Pokhara → Suklaphanta</strong></div>
+      </div>
+    </section>
+
+    <!-- Performance Summary -->
+    <section class="performance">
+      <h3>📊 Performance Overview</h3>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h4>Trips Completed</h4>
+          <p>128</p>
+        </div>
+        <div class="stat-card">
+          <h4>Punctuality</h4>
+          <p>97%</p>
+        </div>
+        <div class="stat-card">
+          <h4>Safe Driving</h4>
+          <p>Excellent</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick Settings -->
+    <section class="quick-settings">
+      <h3>⚙️ Settings & Tools</h3>
+      <div class="setting-list">
+        <button class="setting-btn">🔒 Change Password</button>
+        <button class="setting-btn">🌙 Toggle Dark Mode</button>
+        <button class="setting-btn">📞 Contact Admin</button>
+        <button class="setting-btn danger">🚪 Log Out</button>
+      </div>
+    </section>
+
+    <!-- Notices / Messages -->
+    <section class="notice-section">
+      <h3>📢 Recent Notices</h3>
+      <div class="notice-list">
+        <div class="notice info">
+          <p>New safety training session on Monday.</p>
+          <span>1 day ago</span>
+        </div>
+        <div class="notice warning">
+          <p>Check vehicle tire pressure before next trip.</p>
+          <span>3 hrs ago</span>
+        </div>
+      </div>
+    </section>
+<nav class="bottom-nav">
+      <button class="nav-btn active">Map</button>
+      <button class="nav-btn">Route</button>
+      <button class="nav-btn">Students</button>
+      <button class="nav-btn">Alerts</button>
+      <button class="nav-btn">Profile</button>
+    </nav>
+    <!-- Footer -->
+    <footer class="profile-footer">
+      <p>V-Track Driver Portal © 2025</p>
+    </footer>
+  </div>
+   <script src="../js/firebase.js"></script>
+   <script src="../js/utils.js"></script>
+   <script src="../js/app-bootstrap.js"></script>
+   <script src="../js/pages/common-bindings.js"></script>
+   <script src="../js/pages/profile.js"></script>
+   <script src="../driver-platform/js/driver.js"></script>
+</body>
+</html>

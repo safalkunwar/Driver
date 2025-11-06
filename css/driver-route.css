@@ -1,0 +1,111 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap");
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Poppins", sans-serif;
+}
+:root {
+    --bg-dark: #0d1117;
+    --panel: #161b22;
+    --accent: #3b82f6;
+    --text: #f3f4f6;
+    --subtext: #9ca3af;
+    --danger: #ef4444;
+}
+body {
+    background: var(--bg-dark);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+}
+.driver-route-app {
+    width: 100%;
+    max-width: 480px;
+    background: var(--panel);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+.route-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #1f2937;
+    padding: 12px 16px;
+}
+.route-header h1 {
+    color: var(--accent);
+    font-size: 1.1rem;
+}
+.back-btn {
+    background: var(--accent);
+    border: none;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 6px;
+}
+
+.map-container {
+  background: #0f172a;
+  height: 250px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--subtext);
+  border-bottom: 1px solid #2d3645;
+}
+.map-placeholder {
+  text-align: center;
+  border: 2px dashed var(--accent);
+  border-radius: 10px;
+  padding: 20px;
+  width: 90%;
+}
+
+.route-details,
+.checkpoints,
+.route-actions {
+    padding: 16px;
+}
+.route-details h3,
+.checkpoints h3 {
+    color: var(--accent);
+    margin-bottom: 8px;
+}
+.route-card {
+    background: #1f2937;
+    padding: 10px;
+    border-radius: 10px;
+}
+.checkpoints ul {
+    list-style: none;
+    margin-top: 6px;
+}
+.checkpoints li {
+    background: #1f2937;
+    margin-bottom: 6px;
+    padding: 8px 10px;
+    border-radius: 8px;
+}
+.route-actions {
+    display: flex;
+    justify-content: space-around;
+}
+.route-actions button {
+    padding: 10px 14px;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: white;
+    font-weight: 500;
+}
+.route-actions .danger {
+    background: var(--danger);
+}
+
+.footer {
+    text-align: center;
+    padding: 10px;
+    font-size: 0.8rem;
+    color: var(--subtext);
+}

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>V-Track | Notices & Updates</title>
+  <link rel="stylesheet" href="../css/driver-others.css" />
+   <link rel="stylesheet" href="../css/driver.css"/>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+</head>
+<body>
+  <div class="driver-others-app">
+    <header class="others-header">
+      <h1>📢 Notices & Updates</h1>
+      <button class="back-btn" onclick="window.history.back()">← Back</button>
+    </header>
+
+    <section class="notice-section">
+      <div class="notice-card info">
+        <h4>🔧 Maintenance Alert</h4>
+        <p>Your bus is scheduled for a tire check next Monday.</p>
+        <span>2 days ago</span>
+      </div>
+      <div class="notice-card warning">
+        <h4>⚠️ Road Block Notice</h4>
+        <p>Construction work at Damside Road — alternate route suggested.</p>
+        <span>5 hrs ago</span>
+      </div>
+      <div class="notice-card update">
+        <h4>🚀 System Update</h4>
+        <p>V-Track mobile app updated for smoother tracking.</p>
+        <span>Just now</span>
+      </div>
+    </section>
+
+    <section class="bus-summary">
+      <h3>🚌 My Bus Summary</h3>
+      <div class="bus-info">
+        <p><strong>Bus:</strong> 01</p>
+        <p><strong>Trips Completed:</strong> 128</p>
+        <p><strong>Active Students:</strong> 22</p>
+        <p><strong>Status:</strong> On Route</p>
+      </div>
+    </section>
+    <nav class="bottom-nav">
+      <button class="nav-btn active">Map</button>
+      <button class="nav-btn">Route</button>
+      <button class="nav-btn">Students</button>
+      <button class="nav-btn">Alerts</button>
+      <button class="nav-btn">Profile</button>
+    </nav>
+
+    <footer class="footer">
+      <p>V-Track Driver Portal © 2025</p>
+    </footer>
+  </div>
+     <script src="../js/firebase.js"></script>
+   <script src="../js/utils.js"></script>
+   <script src="../js/app-bootstrap.js"></script>
+   <script src="../js/pages/common-bindings.js"></script>
+   <script src="../js/pages/profile.js"></script>
+   <script src="../js/driver.js"></script>
+</body>
+</html>
+

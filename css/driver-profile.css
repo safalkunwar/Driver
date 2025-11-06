@@ -1,0 +1,200 @@
+/* === Base Styling === */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
+}
+
+:root {
+  --bg-dark: #0d1117;
+  --bg-panel: #161b22;
+  --accent: #3b82f6;
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --warning: #facc15;
+  --danger: #ef4444;
+  --info: #22d3ee;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+/* === App Container === */
+.driver-profile-app {
+  width: 100%;
+  max-width: 480px;
+  background: var(--bg-panel);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
+/* === Header === */
+.profile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #1f2937;
+  padding: 12px 16px;
+  border-bottom: 1px solid #2d3645;
+}
+.profile-header h1 {
+  font-size: 1.2rem;
+  color: var(--accent);
+}
+.back-btn {
+  background: var(--accent);
+  border: none;
+  padding: 6px 12px;
+  color: #fff;
+  border-radius: 8px;
+}
+
+/* === Driver Info === */
+.driver-info {
+  text-align: center;
+  padding: 20px 10px;
+  border-bottom: 1px solid #2d3645;
+}
+.profile-photo img {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 3px solid var(--accent);
+}
+.driver-info h2 {
+  margin-top: 10px;
+  font-size: 1.3rem;
+  color: var(--text-primary);
+}
+.role {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+}
+.info-list {
+  text-align: left;
+  margin-top: 15px;
+  background: #1f2937;
+  border-radius: 10px;
+  padding: 12px;
+}
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  margin: 6px 0;
+  color: var(--text-secondary);
+}
+.info-item strong {
+  color: var(--text-primary);
+}
+
+/* === Performance === */
+.performance {
+  padding: 16px;
+}
+.performance h3 {
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+.stats-grid {
+  display: flex;
+  gap: 10px;
+  justify-content: space-around;
+}
+.stat-card {
+  background: #1f2937;
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+  flex: 1;
+}
+.stat-card h4 {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.stat-card p {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--info);
+  margin-top: 4px;
+}
+
+/* === Settings === */
+.quick-settings {
+  padding: 16px;
+  background: #111827;
+  border-top: 1px solid #2d3645;
+}
+.quick-settings h3 {
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+.setting-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.setting-btn {
+  border: none;
+  background: #1f2937;
+  color: var(--text-primary);
+  padding: 10px;
+  border-radius: 10px;
+  text-align: left;
+  transition: background 0.3s;
+}
+.setting-btn:hover {
+  background: #2d3645;
+}
+.setting-btn.danger {
+  background: var(--danger);
+  color: white;
+}
+
+/* === Notices === */
+.notice-section {
+  padding: 16px;
+}
+.notice-section h3 {
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+.notice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.notice {
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  display: flex;
+  justify-content: space-between;
+}
+.notice.info {
+  background: rgba(34,211,238,0.15);
+  color: var(--info);
+}
+.notice.warning {
+  background: rgba(250,204,21,0.15);
+  color: var(--warning);
+}
+
+/* === Footer === */
+.profile-footer {
+  text-align: center;
+  padding: 10px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background: #0d1117;
+}

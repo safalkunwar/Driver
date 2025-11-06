@@ -1,0 +1,627 @@
+/* Driver Dashboard Styles */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    background: #0e0f13;
+    color: #e8e9ed;
+    overflow-x: hidden;
+}
+
+/* Loading Screen */
+#authLoading {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #0e0f13;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5000;
+    flex-direction: column;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(59, 130, 246, 0.3);
+    border-top: 3px solid #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+.loading-text {
+    color: #e8e9ed;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Connection Indicator */
+.bus-connection-indicator {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(90deg, #0f7b3f, #4caf50);
+    color: #fff;
+    padding: 12px 16px;
+    z-index: 1000;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+.bus-indicator-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.bus-indicator-label {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.bus-indicator-id {
+    font-size: 16px;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 4px 12px;
+    border-radius: 4px;
+}
+
+.btn-change-bus {
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    color: #fff;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.btn-change-bus:hover {
+    background: rgba(255, 255, 255, 0.16);
+    transform: translateY(-1px);
+}
+
+/* Bus Selector Modal */
+.bus-selector-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 20px;
+}
+
+.bus-selector-modal {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 400px;
+    width: 100%;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    color: #333;
+}
+
+.bus-selector-modal h2 {
+    margin: 0 0 8px 0;
+    font-size: 24px;
+    color: #333;
+}
+
+.bus-selector-modal p {
+    margin: 0 0 24px 0;
+    color: #666;
+}
+
+.bus-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.bus-option-btn {
+    padding: 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    background: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #333;
+}
+
+.bus-option-btn:hover {
+    border-color: #4caf50;
+}
+
+.bus-option-btn.active {
+    border-color: #4caf50;
+    background: #4caf50;
+    color: white;
+}
+
+.custom-bus-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.custom-bus-input {
+    padding: 14px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+.btn-primary {
+    padding: 14px 24px;
+    background: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary:hover {
+    background: #45a049;
+}
+
+/* Driver Container */
+.driver-container {
+    padding-top: 60px;
+    padding-bottom: 60px;
+}
+
+.driver-header {
+    background: #14161d;
+    padding: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+    position: sticky;
+    top: 60px;
+    z-index: 10;
+}
+
+.driver-header h1 {
+    font-size: 24px;
+    margin-bottom: 12px;
+}
+
+.bus-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.bus-select-dropdown {
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: #0e0f13;
+    color: #e8e9ed;
+    border-radius: 8px;
+    font-size: 16px;
+    min-height: 40px;
+}
+
+/* Map Section */
+.map-section {
+    width: 100%;
+    height: 50vh;
+    min-height: 300px;
+    position: relative;
+    background: #0b0c10;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+}
+
+.map-filter-toggle {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    z-index: 1000;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.filter-toggle-btn {
+    padding: 8px 16px;
+    background: rgba(20, 22, 29, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #e8e9ed;
+    border-radius: 10px;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    transition: transform 0.12s ease, background 0.2s ease, color 0.2s ease;
+    font-size: 14px;
+}
+
+.filter-toggle-btn:hover {
+    transform: translateY(-2px);
+}
+
+.filter-toggle-btn.active {
+    background: #1a73e8;
+    color: #fff;
+    border-color: transparent;
+}
+
+/* Controls */
+.tracking-controls {
+    text-align: center;
+    padding: 16px;
+}
+
+.btn-start-tracking,
+.btn-stop-tracking {
+    padding: 18px 32px;
+    font-size: 18px;
+    font-weight: 600;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    min-width: 240px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+    transition: transform 0.1s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.btn-start-tracking {
+    background: linear-gradient(180deg, #1fae55, #0f7b3f);
+    color: #fff;
+}
+
+.btn-stop-tracking {
+    background: linear-gradient(180deg, #ff5a4e, #c62828);
+    color: #fff;
+}
+
+.btn-start-tracking:hover,
+.btn-stop-tracking:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+}
+
+.btn-start-tracking:active,
+.btn-stop-tracking:active {
+    transform: scale(0.98);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+/* Status Display */
+.status-display {
+    background: #14161d;
+    border-radius: 12px;
+    padding: 16px;
+    margin: 8px 16px 20px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.status-item:last-child {
+    border-bottom: none;
+}
+
+.status-item span:first-child {
+    opacity: 0.7;
+}
+
+.status-item span:last-child {
+    font-weight: 600;
+}
+
+/* Focus Mode Toggle */
+.focus-mode-toggle-container {
+    padding: 12px 16px;
+    text-align: center;
+}
+
+.focus-mode-toggle {
+    padding: 12px 24px;
+    background: #2b2f3a;
+    color: #e8e9ed;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.focus-mode-toggle:hover {
+    background: #363b4a;
+}
+
+/* Student Alerts */
+.student-alerts-banner {
+    position: fixed;
+    bottom: 60px;
+    left: 0;
+    right: 0;
+    background: rgba(255, 152, 0, 0.95);
+    color: #fff;
+    padding: 16px;
+    z-index: 1500;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.alert-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.alert-header span {
+    font-weight: 600;
+}
+
+.dismiss-btn {
+    padding: 4px 12px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+}
+
+/* Focus Mode */
+.driver-focus-mode {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #14161d 0%, #0e0f13 100%);
+    color: #fff;
+    z-index: 2000;
+    padding: 20px;
+    display: none;
+    flex-direction: column;
+}
+
+.driver-focus-mode.active {
+    display: flex;
+}
+
+.focus-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 40px;
+}
+
+.focus-bus-info {
+    font-size: 14px;
+    opacity: 0.8;
+}
+
+.focus-bus-id {
+    font-size: 20px;
+    font-weight: 600;
+    margin-top: 4px;
+}
+
+.exit-focus-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.focus-speed-display {
+    text-align: center;
+    margin: 40px 0;
+    padding: 40px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+}
+
+.speed-value {
+    font-size: 120px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.speed-unit {
+    font-size: 32px;
+    margin-top: 10px;
+    opacity: 0.8;
+}
+
+.focus-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.focus-action-btn {
+    padding: 32px;
+    border-radius: 16px;
+    border: none;
+    background: white;
+    color: #667eea;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    transition: transform 0.2s;
+}
+
+.focus-action-btn:hover {
+    transform: translateY(-2px);
+}
+
+/* Notices Panel */
+.notices-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #111;
+    color: #fff;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+    z-index: 1800;
+    max-height: 50vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.notices-panel.active {
+    transform: translateY(0);
+}
+
+.notices-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: #1a1a1a;
+}
+
+.notices-header-title {
+    font-weight: 600;
+}
+
+.close-notices-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.notices-list {
+    overflow: auto;
+    padding: 8px 16px;
+}
+
+/* Bottom Navigation */
+.bottom-nav {
+    display: flex;
+    justify-content: space-around;
+    background: #1f2937;
+    padding: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+}
+
+.nav-btn {
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.nav-btn.active,
+.nav-btn:hover {
+    background: #3b82f6;
+    color: white;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .map-section {
+        height: 40vh;
+    }
+
+    .driver-header h1 {
+        font-size: 20px;
+    }
+
+    .btn-start-tracking,
+    .btn-stop-tracking {
+        min-width: 200px;
+        padding: 16px 24px;
+        font-size: 16px;
+    }
+
+    .speed-value {
+        font-size: 80px;
+    }
+
+    .speed-unit {
+        font-size: 24px;
+    }
+}
+
+@media (max-width: 480px) {
+    .map-section {
+        height: 35vh;
+    }
+
+    .map-filter-toggle {
+        flex-direction: column;
+    }
+
+    .filter-toggle-btn {
+        width: 100%;
+    }
+
+    .focus-action-btn {
+        padding: 24px;
+        font-size: 20px;
+    }
+}
+
+/* Utility Classes */
+.hidden {
+    display: none !important;
+}
+
+.fade-out {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}

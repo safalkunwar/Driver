@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>V-Track | Students</title>
+  <link rel="stylesheet" href="../css/driver-students.css" />
+  <link rel="stylesheet" href="../css/driver.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+</head>
+<body>
+  <div class="students-app">
+    <header class="students-header">
+      <h1>👥 Students on My Route</h1>
+      <button class="back-btn" onclick="window.history.back()">← Back</button>
+    </header>
+
+    <!-- Map Section -->
+    <section class="map-area">
+      <div id="studentsMap" style="height: 100%; width: 100%;"></div>
+    </section>
+
+    <!-- Filter Section -->
+    <section class="filter-section" style="padding: 12px 16px; background: #1f2937; border-bottom: 1px solid #2d3645;">
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="filter-btn active" data-filter="all">All Students</button>
+        <button class="filter-btn" data-filter="nearby">Nearby</button>
+        <button class="filter-btn" data-filter="waiting">Waiting</button>
+        <button class="filter-btn" data-filter="onboard">On Board</button>
+      </div>
+    </section>
+
+    <!-- Student List -->
+    <section class="student-list">
+      <h3>📋 Student List (<span id="studentCount">0</span>)</h3>
+      <div id="studentListContainer">
+        <!-- Students will be populated here -->
+        <div class="student-card">
+          <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div>
+              <h4>Aayush Sharma</h4>
+              <p>📍 Lakeside, Pokhara (800m ahead)</p>
+              <p>🏫 Grade 10 • Roll: 45</p>
+            </div>
+            <span class="status-badge waiting">Waiting</span>
+          </div>
+          <div style="margin-top: 8px; font-size: 0.85rem; color: #9ca3af;">
+            <span>📞 Contact: 98XXXXXXXX</span>
+          </div>
+        </div>
+
+        <div class="student-card">
+          <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div>
+              <h4>Priya Gurung</h4>
+              <p>📍 Mah</span>endrapool (1.2km ahead)</p>
+              <p>🏫 Grade 9 • Roll: 23</p>
+            </div>
+            <span class="status-badge waiting">Waiting</span>
+          </div>
+          <div style="margin-top: 8px; font-size: 0.85rem; color: #9ca3af;">
+            <span>📞 Contact: 98XXXXXXXX</span>
+          </div>
+        </div>
+
+        <div class="student-card">
+          <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div>
+              <h4>Rohan Thapa</h4>
+              <p>📍 New Road (50m ahead)</p>
+              <p>🏫 Grade 8 • Roll: 12</p>
+            </div>
+            <span class="status-badge nearby">Nearby</span>
+          </div>
+          <div style="margin-top: 8px; font-size: 0.85rem; color: #9ca3af;">
+            <span>📞 Contact: 98XXXXXXXX</span>
+          </div>
+        </div>
+
+        <div class="student-card">
+          <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div>
+              <h4>Sita Poudel</h4>
+              <p>📍 On Board</p>
+              <p>🏫 Grade 10 • Roll: 8</p>
+            </div>
+            <span class="status-badge onboard">On Board</span>
+          </div>
+          <div style="margin-top: 8px; font-size: 0.85rem; color: #9ca3af;">
+            <span>Picked up at: 07:15 AM</span>
+          </div>
+        </div>
+
+        <div class="student-card">
+          <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div>
+              <h4>Bijay Rai</h4>
+              <p>📍 On Board</p>
+              <p>🏫 Grade 9 • Roll: 34</p>
+            </div>
+            <span class="status-badge onboard">On Board</span>
+          </div>
+          <div style="margin-top: 8px; font-size: 0.85rem; color: #9ca3af;">
+            <span>Picked up at: 07:10 AM</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Actions -->
+    <section class="actions-section" style="padding: 16px; background: #161b22;">
+      <button class="action-btn primary" onclick="markAllPresent()">
+        ✓ Mark All Present
+      </button>
+      <button class="action-btn secondary" onclick="refreshStudentList()">
+        🔄 Refresh List
+      </button>
+    </section>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+      <button class="nav-btn" data-page="map">Map</button>
+      <button class="nav-btn" data-page="route">Route</button>
+      <button class="nav-btn active" data-page="students">Students</button>
+      <button class="nav-btn" data-page="alerts">Alerts</button>
+      <button class="nav-btn" data-page="profile">Profile</button>
+    </nav>
+
+    <footer class="footer">
+      <p>V-Track Driver Portal © 2025</p>
+    </footer>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="../js/firebase.js"></script>
+  <script src="../js/utils.js"></script>
+  <script src="../js/map.js"></script>
+  <script src="../js/app-bootstrap.js"></script>
+  <script src="../js/pages/common-bindings.js"></script>
+  <script src="../js/driver.js"></script>
+
+  <script>
+    // Initialize map
+    let studentsMap;
+    let busMarker;
+    let studentMarkers = [];
+
+    function initStudentsMap() {
+      if (studentsMap) return;
+
+      studentsMap = L.map('studentsMap').setView([28.2096, 83.9856], 13);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(studentsMap);
+
+      // Add bus marker
+      const busIcon = L.divIcon({
+        className: 'bus-icon',
+        html: '<div style="background: #3b82f6; color: white; padding: 8px; border-radius: 50%; font-size: 20px;">🚌</div>',
+        iconSize: [40, 40]
+      });
+
+      busMarker = L.marker([28.2096, 83.9856], { icon: busIcon }).addTo(studentsMap);
+      busMarker.bindPopup('Your Bus');
+
+      // Add student markers (example)
+      const students = [
+        { name: 'Aayush Sharma', lat: 28.2156, lng: 83.9896, status: 'waiting' },
+        { name: 'Priya Gurung', lat: 28.2186, lng: 83.9916, status: 'waiting' },
+        { name: 'Rohan Thapa', lat: 28.2106, lng: 83.9866, status: 'nearby' }
+      ];
+
+      students.forEach(student => {
+        const color = student.status === 'nearby' ? '#22c55e' : '#f59e0b';
+        const studentIcon = L.divIcon({
+          className: 'student-icon',
+          html: `<div style="background: ${color}; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; white-space: nowrap;">👤 ${student.name}</div>`,
+          iconSize: [100, 30]
+        });
+
+        const marker = L.marker([student.lat, student.lng], { icon: studentIcon }).addTo(studentsMap);
+        marker.bindPopup(`<b>${student.name}</b><br>Status: ${student.status}`);
+        studentMarkers.push(marker);
+      });
+    }
+
+    // Initialize map when page loads
+    window.addEventListener('load', () => {
+      setTimeout(initStudentsMap, 100);
+    });
+
+    // Filter functionality
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    filterButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        filterButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const filter = btn.dataset.filter;
+        filterStudents(filter);
+      });
+    });
+
+    function filterStudents(filter) {
+      const studentCards = document.querySelectorAll('.student-card');
+      let visibleCount = 0;
+
+      studentCards.forEach(card => {
+        const badge = card.querySelector('.status-badge');
+        if (!badge) return;
+
+        const status = badge.classList.contains('nearby') ? 'nearby' :
+                      badge.classList.contains('waiting') ? 'waiting' :
+                      badge.classList.contains('onboard') ? 'onboard' : 'all';
+
+        if (filter === 'all' || filter === status) {
+          card.style.display = 'block';
+          visibleCount++;
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      document.getElementById('studentCount').textContent = visibleCount;
+    }
+
+    function markAllPresent() {
+      alert('Marking all students as present...');
+      // Implement Firebase update logic here
+    }
+
+    function refreshStudentList() {
+      alert('Refreshing student list...');
+      // Implement Firebase fetch logic here
+      location.reload();
+    }
+
+    // Initial count
+    document.getElementById('studentCount').textContent =
+      document.querySelectorAll('.student-card').length;
+  </script>
+
+  <style>
+    .filter-btn {
+      background: #374151;
+      border: none;
+      color: #9ca3af;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .filter-btn.active {
+      background: #3b82f6;
+      color: white;
+    }
+
+    .filter-btn:hover {
+      background: #4b5563;
+    }
+
+    .filter-btn.active:hover {
+      background: #2563eb;
+    }
+
+    .status-badge {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .status-badge.waiting {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .status-badge.nearby {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .status-badge.onboard {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .action-btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 8px;
+      transition: all 0.2s;
+    }
+
+    .action-btn.primary {
+      background: #22c55e;
+      color: white;
+    }
+
+    .action-btn.primary:hover {
+      background: #16a34a;
+    }
+
+    .action-btn.secondary {
+      background: #374151;
+      color: white;
+    }
+
+    .action-btn.secondary:hover {
+      background: #4b5563;
+    }
+
+    #studentsMap {
+      min-height: 250px;
+    }
+
+    .actions-section {
+      border-top: 1px solid #2d3645;
+    }
+  </style>
+</body>
+</html>

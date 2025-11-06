@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Bus Simulator | V-Track Smart Tracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #e2e8f0;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .card h2 {
+            color: #60a5fa;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #map {
+            height: 600px;
+            border-radius: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-group {
+            background: rgba(30, 41, 59, 0.5);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+
+        select, input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: #e2e8f0;
+            font-size: 0.95rem;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #60a5fa;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(34, 197, 94, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: rgba(30, 41, 59, 0.5);
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 3px solid #3b82f6;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #60a5fa;
+        }
+
+        .stat-unit {
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+
+        .info-grid {
+            display: grid;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .info-label {
+            color: #94a3b8;
+        }
+
+        .info-value {
+            color: #e2e8f0;
+            font-weight: 600;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-active {
+            background: #22c55e;
+            box-shadow: 0 0 10px #22c55e;
+            animation: pulse 2s infinite;
+        }
+
+        .status-inactive {
+            background: #64748b;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .log-container {
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 6px;
+            padding: 10px;
+            margin-top: 10px;
+        }
+
+        .log-entry {
+            padding: 6px;
+            margin-bottom: 4px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            border-left: 3px solid transparent;
+        }
+
+        .log-info {
+            background: rgba(59, 130, 246, 0.1);
+            border-left-color: #3b82f6;
+        }
+
+        .log-success {
+            background: rgba(34, 197, 94, 0.1);
+            border-left-color: #22c55e;
+        }
+
+        .log-warning {
+            background: rgba(234, 179, 8, 0.1);
+            border-left-color: #eab308;
+        }
+
+        .timestamp {
+            color: #64748b;
+            font-size: 0.75rem;
+        }
+
+        .route-info {
+            background: rgba(30, 41, 59, 0.5);
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+
+        .route-info h4 {
+            color: #60a5fa;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+
+        .route-info p {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .waypoints-list {
+            max-height: 150px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .waypoint-item {
+            padding: 6px 10px;
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 4px;
+            margin-bottom: 4px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .waypoint-item.active {
+            background: rgba(59, 130, 246, 0.2);
+            border-left: 3px solid #3b82f6;
+        }
+
+        .waypoint-item.completed {
+            opacity: 0.5;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid;
+        }
+
+        .alert-info {
+            background: rgba(59, 130, 246, 0.1);
+            border-left-color: #3b82f6;
+            color: #93c5fd;
+        }
+
+        .slider-container {
+            margin-top: 10px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #3b82f6;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #3b82f6;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚌 Live Bus Simulator</h1>
+            <p>Watch a virtual bus move along a real route with Smart Tracker GPS updates</p>
+        </div>
+
+        <div class="alert alert-info">
+            <strong></strong>ℹ️ How it works:</strong> This simulates a real bus driving along a predefined route.
+            The virtual bus generates GPS coordinates and sends them to Firebase through the Smart Tracker,
+            just like a real driver would. Watch the efficiency in action!
+        </div>
+
+        <div class="main-grid">
+            <!-- Map Section -->
+            <div class="card">
+                <h2>🗺️ Live Map</h2>
+                <div id="map"></div>
+            </div>
+
+            <!-- Controls Section -->
+            <div class="card">
+                <h2>⚙️ Simulation Controls</h2>
+                <div class="controls">
+                    <!-- Bus ID -->
+                    <div class="control-group">
+                        <label>Bus ID</label>
+                        <input type="text" id="busIdInput" value="virtual-bus-01" placeholder="Enter bus ID">
+                    </div>
+
+                    <!-- Route Selection -->
+                    <div class="control-group">
+                        <label>Select Route</label>
+                        <select id="routeSelect">
+                            <option value="test_loop">Test Loop (Quick)</option>
+                            <option value="pokhara_city" selected>Pokhara City Route</option>
+                            <option value="campus_route">Campus Route</option>
+                            <option value="highway_route">Highway Route</option>
+                        </select>
+                        <div id="routeInfo" class="route-info" style="display: none;">
+                            <h4 id="routeName"></h4>
+                            <p id="routeDescription"></p>
+                        </div>
+                    </div>
+
+                    <!-- Speed Control -->
+                    <div class="control-group">
+                        <label>Bus Speed: <span id="speedValue">40</span> km/h</label>
+                        <div class="slider-container">
+                            <input type="range" id="speedSlider" min="20" max="80" value="40" step="5">
+                        </div>
+                    </div>
+
+                    <!-- Traffic Simulation -->
+                    <div class="control-group">
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="trafficCheckbox">
+                            <label for="trafficCheckbox" style="margin: 0;">Enable Traffic Simulation</label>
+                        </div>
+                    </div>
+
+                    <!-- Start/Stop Buttons -->
+                    <button id="startBtn" class="btn btn-success">▶️ Start Simulation</button>
+                    <button id="stopBtn" class="btn btn-danger" disabled>⏹️ Stop Simulation</button>
+                    <button id="resetBtn" class="btn btn-primary">🔄 Reset</button>
+                </div>
+
+                <!-- Current Stats -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Current Speed</div>
+                        <div class="stat-value">
+                            <span id="currentSpeed">0</span>
+                            <span class="stat-unit">km/h</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Heading</div>
+                        <div class="stat-value">
+                            <span id="currentHeading">0</span>
+                            <span class="stat-unit">°</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Distance Traveled</div>
+                        <div class="stat-value">
+                            <span id="distanceTraveled">0.0</span>
+                            <span class="stat-unit">km</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Stops Visited</div>
+                        <div class="stat-value">
+                            <span id="stopsVisited">0</span>
+                            <span class="stat-unit">stops</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tracker Stats -->
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Status:</span>
+                        <span class="info-value" id="statusText">
+                            <span class="status-indicator status-inactive"></span>
+                            Stopped
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Firebase Writes:</span>
+                        <span class="info-value" id="firebaseWrites">0</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">GPS Updates:</span>
+                        <span class="info-value" id="gpsUpdates">0</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Efficiency:</span>
+                        <span class="info-value" id="efficiency">—</span>
+                    </div>
+                </div>
+
+                <!-- Activity Log -->
+                <div style="margin-top: 15px;">
+                    <label style="display: block; margin-bottom: 8px; font-size: 0.9rem; color: #94a3b8; font-weight: 600;">
+                        📝 Activity Log
+                    </label>
+                    <div class="log-container" id="logContainer">
+                        <div class="log-entry log-info">
+                            <span class="timestamp">[Ready]</span> Virtual bus simulator ready
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Waypoints Section -->
+        <div class="card">
+            <h2>📍 Route Waypoints</h2>
+            <div class="waypoints-list" id="waypointsList">
+                <p style="color: #64748b; text-align: center;">Select a route to see waypoints</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="../js/firebase.js"></script>
+    <script src="../js/smart-tracker.js"></script>
+    <script src="../js/virtual-bus-simulator.js"></script>
+
+    <script>
+        // Initialize map
+        let map = L.map('map').setView([28.2150, 83.9886], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        let busMarker = null;
+        let routePolyline = null;
+        let waypointMarkers = [];
+
+        // DOM elements
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const busIdInput = document.getElementById('busIdInput');
+        const routeSelect = document.getElementById('routeSelect');
+        const speedSlider = document.getElementById('speedSlider');
+        const speedValue = document.getElementById('speedValue');
+        const trafficCheckbox = document.getElementById('trafficCheckbox');
+        const logContainer = document.getElementById('logContainer');
+
+        // Statistics tracking
+        let totalGPSUpdates = 0;
+        let totalFirebaseWrites = 0;
+
+        // Initialize route info
+        function updateRouteInfo() {
+            const routeKey = routeSelect.value;
+            const route = VirtualBus.getRoute(routeKey);
+
+            document.getElementById('routeName').textContent = route.name;
+            document.getElementById('routeDescription').textContent = route.description;
+            document.getElementById('routeInfo').style.display = 'block';
+
+            // Update waypoints list
+            const waypointsList = document.getElementById('waypointsList');
+            waypointsList.innerHTML = '';
+
+            route.waypoints.forEach((waypoint, index) => {
+                const item = document.createElement('div');
+                item.className = 'waypoint-item';
+                item.innerHTML = `
+                    <span style="color: #60a5fa; font-weight: bold;">${index + 1}</span>
+                    <span>${waypoint.name}</span>
+                `;
+                item.dataset.index = index;
+                waypointsList.appendChild(item);
+            });
+
+            // Draw route on map
+            drawRoute(route);
+        }
+
+        function drawRoute(route) {
+            // Clear existing
+            if (routePolyline) {
+                map.removeLayer(routePolyline);
+            }
+            waypointMarkers.forEach(marker => map.removeLayer(marker));
+            waypointMarkers = [];
+
+            // Draw route polyline
+            const latlngs = route.waypoints.map(wp => [wp.lat, wp.lon]);
+            routePolyline = L.polyline(latlngs, {
+                color: route.color || '#3b82f6',
+                weight: 4,
+                opacity: 0.6,
+                dashArray: '10, 10'
+            }).addTo(map);
+
+            // Add waypoint markers
+            route.waypoints.forEach((waypoint, index) => {
+                const marker = L.circleMarker([waypoint.lat, waypoint.lon], {
+                    radius: 6,
+                    fillColor: '#60a5fa',
+                    color: '#1e3a8a',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map);
+
+                marker.bindPopup(`<b>${waypoint.name}</b><br>Stop ${index + 1}`);
+                waypointMarkers.push(marker);
+            });
+
+            // Fit map to route
+            map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
+        }
+
+        // Add log entry
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
+            logContainer.insertBefore(entry, logContainer.firstChild);
+
+            // Keep only last 20 entries
+            while (logContainer.children.length > 20) {
+                logContainer.removeChild(logContainer.lastChild);
+            }
+        }
+
+        // Start simulation
+        startBtn.addEventListener('click', () => {
+            const busId = busIdInput.value.trim();
+            const routeKey = routeSelect.value;
+
+            if (!busId) {
+                alert('Please enter a bus ID');
+                return;
+            }
+
+            addLog(`Starting simulation for ${busId} on ${routeSelect.options[routeSelect.selectedIndex].text}`, 'info');
+
+            // Initialize VirtualBus
+            VirtualBus.initialize(routeKey, busId, {
+                onPositionUpdate: (locationData, stats) => {
+                    totalGPSUpdates++;
+                    updateBusPosition(locationData);
+                    updateStats(stats);
+                },
+                onWaypointReached: (waypoint, stopCount) => {
+                    addLog(`🚏 Reached: ${waypoint.name}`, 'success');
+                    highlightWaypoint(stopCount - 1);
+                },
+                onRouteComplete: (stats) => {
+                    addLog('🏁 Route completed! Starting next loop...', 'warning');
+                }
+            });
+
+            // Set speed and traffic
+            VirtualBus.setSpeed(parseInt(speedSlider.value));
+            VirtualBus.enableTraffic(trafficCheckbox.checked);
+
+            // Start simulation
+            VirtualBus.start();
+
+            // Update UI
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            updateStatus(true);
+
+            addLog('✅ Simulation started successfully', 'success');
+        });
+
+        // Stop simulation
+        stopBtn.addEventListener('click', () => {
+            VirtualBus.stop();
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            updateStatus(false);
+            addLog('⏹️ Simulation stopped', 'warning');
+        });
+
+        // Reset
+        resetBtn.addEventListener('click', () => {
+            if (VirtualBus.isRunning()) {
+                VirtualBus.stop();
+            }
+
+            totalGPSUpdates = 0;
+            totalFirebaseWrites = 0;
+
+            // Reset UI
+            document.getElementById('currentSpeed').textContent = '0';
+            document.getElementById('currentHeading').textContent = '0';
+            document.getElementById('distanceTraveled').textContent = '0.0';
+            document.getElementById('stopsVisited').textContent = '0';
+            document.getElementById('firebaseWrites').textContent = '0';
+            document.getElementById('gpsUpdates').textContent = '0';
+            document.getElementById('efficiency').textContent = '—';
+
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            updateStatus(false);
+
+            // Clear waypoint highlights
+            document.querySelectorAll('.waypoint-item').forEach(item => {
+                item.classList.remove('active', 'completed');
+            });
+
+            logContainer.innerHTML = '<div class="log-entry log-info"><span class="timestamp">[Ready]</span> Virtual bus simulator reset</div>';
+
+            addLog('🔄 System reset', 'info');
+        });
+
+        // Speed slider
+        speedSlider.addEventListener('input', (e) => {
+            const speed = e.target.value;
+            speedValue.textContent = speed;
+            if (VirtualBus.isRunning()) {
+                VirtualBus.setSpeed(parseInt(speed));
+                addLog(`Speed adjusted to ${speed} km/h`, 'info');
+            }
+        });
+
+        // Traffic checkbox
+        trafficCheckbox.addEventListener('change', (e) => {
+            if (VirtualBus.isRunning()) {
+                VirtualBus.enableTraffic(e.target.checked);
+                addLog(`Traffic simulation ${e.target.checked ? 'enabled' : 'disabled'}`, 'info');
+            }
+        });
+
+        // Route selection
+        routeSelect.addEventListener('change', () => {
+            updateRouteInfo();
+        });
+
+        // Update bus position on map
+        function updateBusPosition(locationData) {
+            const latlng = [locationData.latitude, locationData.longitude];
+
+            if (!busMarker) {
+                busMarker = L.marker(latlng, {
+                    icon: L.divIcon({
+                        className: 'bus-marker',
+                        html: `<div style="
+                            background: linear-gradient(135deg, #3b82f6, #2563eb);
+                            color: white;
+                            padding: 10px;
+                            border-radius: 50%;
+                            font-size: 24px;
+                            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+                            border: 3px solid white;
+                        ">🚌</div>`,
+                        iconSize: [50, 50]
+                    })
+                }).addTo(map);
+            } else {
+                busMarker.setLatLng(latlng);
+            }
+
+            busMarker.bindPopup(`
+                <b>Bus: ${VirtualBus.isRunning() ? busIdInput.value : 'N/A'}</b><br>
+                Speed: ${locationData.speed} km/h<br>
+                Heading: ${locationData.heading}°
+            `);
+
+            // Update displayed values
+            document.getElementById('currentSpeed').textContent = locationData.speed;
+            document.getElementById('currentHeading').textContent = locationData.heading;
+
+            // Check if SmartTracker wrote to Firebase
+            if (window.SmartTracker) {
+                const stats = SmartTracker.getStats();
+                const newWrites = stats.totalUpdates;
+                if (newWrites > totalFirebaseWrites) {
+                    totalFirebaseWrites = newWrites;
+                    addLog(`✅ Location written to Firebase`, 'success');
+                }
+            }
+        }
+
+        // Update statistics
+        function updateStats(stats) {
+            document.getElementById('distanceTraveled').textContent = (stats.distanceTraveled / 1000).toFixed(2);
+            document.getElementById('stopsVisited').textContent = stats.stopsVisited;
+            document.getElementById('gpsUpdates').textContent = totalGPSUpdates;
+            document.getElementById('firebaseWrites').textContent = totalFirebaseWrites;
+
+            // Calculate efficiency
+            if (totalGPSUpdates > 0) {
+                const efficiency = ((totalFirebaseWrites / totalGPSUpdates) * 100).toFixed(1);
+                document.getElementById('efficiency').textContent = efficiency + '%';
+            }
+        }
+
+        // Highlight waypoint
+        function highlightWaypoint(index) {
+            const items = document.querySelectorAll('.waypoint-item');
+            items.forEach((item, i) => {
+                if (i < index) {
+                    item.classList.add('completed');
+                    item.classList.remove('active');
+                } else if (i === index) {
+                    item.classList.add('active');
+                    item.classList.remove('completed');
+                } else {
+                    item.classList.remove('active', 'completed');
+                }
+            });
+        }
+
+        // Update status indicator
+        function updateStatus(isActive) {
+            const statusText = document.getElementById('statusText');
+            if (isActive) {
+                statusText.innerHTML = '<span class="status-indicator status-active"></span>Running';
+            } else {
+                statusText.innerHTML = '<span class="status-indicator status-inactive"></span>Stopped';
+            }
+        }
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            updateRouteInfo();
+            addLog('🚀 System initialized', 'success');
+            addLog('💡 Select a route and click Start to begin simulation', 'info');
+        });
+
+        // Monitor SmartTracker stats
+        setInterval(() => {
+            if (VirtualBus.isRunning() && window.SmartTracker) {
+                const stats = SmartTracker.getStats();
+                document.getElementById('firebaseWrites').textContent = stats.totalUpdates;
+
+                if (totalGPSUpdates > 0) {
+                    const efficiency = ((stats.totalUpdates / totalGPSUpdates) * 100).toFixed(1);
+                    document.getElementById('efficiency').textContent = efficiency + '%';
+                }
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

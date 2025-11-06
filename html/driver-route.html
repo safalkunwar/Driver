@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>V-Track | Route Overview</title>
+        <link rel="stylesheet" href="../css/driver-route.css" />
+        <link rel="stylesheet" href="../css/driver.css" />
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        />
+        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    </head>
+    <body>
+        <div class="driver-route-app">
+            <header class="route-header">
+                <h1>🗺️ My Route</h1>
+                <button class="back-btn" onclick="window.history.back()">
+                    ← Back
+                </button>
+            </header>
+
+            <section class="map-container">
+                <div
+                    id="map"
+                    style="height: 100%; width: 100%; min-height: 250px"
+                ></div>
+            </section>
+
+    <section class="map-container">
+      <div class="map-placeholder">
+        <p>Map will appear here (showing current bus and route path)</p>
+      </div>
+    </section>
+
+            <section class="checkpoints">
+                <h3>🚏 Checkpoints</h3>
+                <ul>
+                    <li>Pokhara Bus Stop</li>
+                    <li>Baglung Highway Point</li>
+                    <li>Damauli Stop</li>
+                    <li>Narayanghat Junction</li>
+                    <li>Suklaphanta Bus Station</li>
+                </ul>
+            </section>
+
+            <section class="route-actions">
+                <button class="start-route">▶ Start Route</button>
+                <button class="pause-route">⏸ Pause</button>
+                <button class="end-route danger">⏹ End Route</button>
+            </section>
+            <nav class="bottom-nav">
+                <button class="nav-btn active">Map</button>
+                <button class="nav-btn">Route</button>
+                <button class="nav-btn">Students</button>
+                <button class="nav-btn">Alerts</button>
+                <button class="nav-btn">Profile</button>
+            </nav>
+            <footer class="footer">
+                <p>V-Track Driver Portal © 2025</p>
+            </footer>
+        </div>
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script src="../js/firebase.js"></script>
+        <script src="../js/utils.js"></script>
+        <script src="../js/map.js"></script>
+        <script src="../js/app-bootstrap.js"></script>
+        <script src="../js/pages/common-bindings.js"></script>
+        <script src="../js/pages/route.js"></script>
+        <script src="../js/pages/history.js"></script>
+        <script src="../js/driver.js"></script>
+    </body>
+</html>
