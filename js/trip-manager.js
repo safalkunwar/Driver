@@ -124,20 +124,14 @@
 
     try {
       // Write to Firebase - trips collection
-      await firebase
-        .database()
-        .ref(`trips/${busId}/${tripId}`)
-        .set(trip);
+      await firebase.database().ref(`trips/${busId}/${tripId}`).set(trip);
 
       // Mark as active trip
-      await firebase
-        .database()
-        .ref(`activeTrips/${busId}`)
-        .set({
-          tripId: tripId,
-          startTime: now,
-          status: "active",
-        });
+      await firebase.database().ref(`activeTrips/${busId}`).set({
+        tripId: tripId,
+        startTime: now,
+        status: "active",
+      });
 
       // Update bus status
       await firebase
@@ -151,17 +145,7 @@
           updatedAt: now,
         });
 
-      // Also update current route at bus location level for easy access
-      await firebase
-        .database()
-        .ref(`BusLocation/${busId}/currentRoute`)
-        .set({
-          routeId: routeId || "default_route",
-          routeName: trip.routeName,
-          routeDescription: trip.routeDescription,
-          tripId: tripId,
-          startTime: now,
-        });
+      // Only GPS points will be written to BusLocation/{busId}/{timestamp} by location tracking logic during trip.
 
       // Update state
       state.currentTrip = trip;
@@ -195,420 +179,458 @@
     }
   }
 
-    /**
-     * End current trip
-     */
-    async function endTrip() {
-        if (!state.isActive || !state.currentTrip) {
-            console.warn('[TripManager] No active trip to end');
-            return null;
-        }
-
-        const now = Date.now();
-        const endLocation = await getCurrentLocation();
-        const duration = now - state.startTime - state.pauseDuration;
-
-        // Validate minimum trip duration
-        if (duration < CONFIG.MIN_TRIP_DURATION) {
-            throw new Error('Trip too short. Minimum duration is 1 minute.');
-        }
-
-        // Prepare trip summary
-        const tripSummary = {
-            endTime: now,
-            endLocation: endLocation || state.lastLocation,
-            duration: duration,
-            distance: state.totalDistance,
-            status: 'completed',
-            stops: state.stops,
-            studentsBoarded: state.studentsBoarded,
-            studentsDropped: state.studentsDropped,
-            totalStops: state.stops.length,
-            totalStudents: state.studentsBoarded.length,
-            updatedAt: now
-        };
-
-        try {
-            // Update trip in Firebase
-            await firebase.database()
-                .ref(`trips/${state.currentTrip.busId}/${state.currentTrip.tripId}`)
-                .update(tripSummary);
-
-            // Remove from active trips
-            await firebase.database()
-                .ref(`activeTrips/${state.currentTrip.busId}`)
-                .remove();
-
-            // Update bus status
-            await firebase.database()
-                .ref(`buses/${state.currentTrip.busId}/status`)
-                .set({
-                    status: 'idle',
-                    currentTrip: null,
-                    lastTrip: state.currentTrip.tripId,
-                    updatedAt: now
-                });
-
-            // Save to trip history
-            await firebase.database()
-                .ref(`tripHistory/${state.currentTrip.busId}/${state.currentTrip.tripId}`)
-                .set({
-                    ...state.currentTrip,
-                    ...tripSummary
-                });
-
-            console.log('[TripManager] Trip ended:', state.currentTrip.tripId);
-            console.log('[TripManager] Trip summary:', tripSummary);
-
-            // Trigger callback
-            if (window.TripManagerCallbacks && window.TripManagerCallbacks.onTripEnd) {
-                window.TripManagerCallbacks.onTripEnd(tripSummary);
-            }
-
-            // Stop auto-save
-            stopAutoSave();
-
-            // Reset state
-            const completedTrip = { ...state.currentTrip, ...tripSummary };
-            state.currentTrip = null;
-            state.isActive = false;
-            state.lastLocation = null;
-            state.totalDistance = 0;
-            state.stops = [];
-            state.studentsBoarded = [];
-            state.studentsDropped = [];
-            state.startTime = null;
-            state.pausedTime = null;
-            state.pauseDuration = 0;
-
-            return completedTrip;
-
-        } catch (error) {
-            console.error('[TripManager] Failed to end trip:', error);
-            throw error;
-        }
+  /**
+   * End current trip
+   */
+  async function endTrip() {
+    if (!state.isActive || !state.currentTrip) {
+      console.warn("[TripManager] No active trip to end");
+      return null;
     }
 
-    /**
-     * Pause current trip
-     */
-    async function pauseTrip(reason) {
-        if (!state.isActive || !state.currentTrip) {
-            throw new Error('No active trip to pause');
-        }
+    const now = Date.now();
+    const endLocation = await getCurrentLocation();
+    const duration = now - state.startTime - state.pauseDuration;
 
-        if (state.currentTrip.status === 'paused') {
-            console.warn('[TripManager] Trip already paused');
-            return;
-        }
-
-        const now = Date.now();
-
-        try {
-            await firebase.database()
-                .ref(`trips/${state.currentTrip.busId}/${state.currentTrip.tripId}`)
-                .update({
-                    status: 'paused',
-                    pausedAt: now,
-                    pauseReason: reason || 'Driver initiated',
-                    updatedAt: now
-                });
-
-            state.currentTrip.status = 'paused';
-            state.pausedTime = now;
-
-            console.log('[TripManager] Trip paused');
-
-            if (window.TripManagerCallbacks && window.TripManagerCallbacks.onTripPause) {
-                window.TripManagerCallbacks.onTripPause();
-            }
-
-        } catch (error) {
-            console.error('[TripManager] Failed to pause trip:', error);
-            throw error;
-        }
+    // Validate minimum trip duration
+    if (duration < CONFIG.MIN_TRIP_DURATION) {
+      throw new Error("Trip too short. Minimum duration is 1 minute.");
     }
 
-    /**
-     * Resume paused trip
-     */
-    async function resumeTrip() {
-        if (!state.isActive || !state.currentTrip) {
-            throw new Error('No trip to resume');
-        }
+    // Prepare trip summary
+    const tripSummary = {
+      endTime: now,
+      endLocation: endLocation || state.lastLocation,
+      duration: duration,
+      distance: state.totalDistance,
+      status: "completed",
+      stops: state.stops,
+      studentsBoarded: state.studentsBoarded,
+      studentsDropped: state.studentsDropped,
+      totalStops: state.stops.length,
+      totalStudents: state.studentsBoarded.length,
+      updatedAt: now,
+    };
 
-        if (state.currentTrip.status !== 'paused') {
-            console.warn('[TripManager] Trip is not paused');
-            return;
-        }
+    try {
+      // Update trip in Firebase
+      await firebase
+        .database()
+        .ref(`trips/${state.currentTrip.busId}/${state.currentTrip.tripId}`)
+        .update(tripSummary);
 
-        const now = Date.now();
-        const pauseLength = now - state.pausedTime;
-        state.pauseDuration += pauseLength;
+      // Remove from active trips
+      await firebase
+        .database()
+        .ref(`activeTrips/${state.currentTrip.busId}`)
+        .remove();
 
-        try {
-            await firebase.database()
-                .ref(`trips/${state.currentTrip.busId}/${state.currentTrip.tripId}`)
-                .update({
-                    status: 'active',
-                    resumedAt: now,
-                    pauseDuration: state.pauseDuration,
-                    updatedAt: now
-                });
-
-            state.currentTrip.status = 'active';
-            state.pausedTime = null;
-
-            console.log('[TripManager] Trip resumed');
-
-            if (window.TripManagerCallbacks && window.TripManagerCallbacks.onTripResume) {
-                window.TripManagerCallbacks.onTripResume();
-            }
-
-        } catch (error) {
-            console.error('[TripManager] Failed to resume trip:', error);
-            throw error;
-        }
-    }
-
-    // ============================================================
-    // DISTANCE TRACKING
-    // ============================================================
-
-    /**
-     * Update distance traveled
-     */
-    function updateDistance(newLocation) {
-        if (!state.isActive || !state.lastLocation) {
-            return;
-        }
-
-        // Don't update distance when paused
-        if (state.currentTrip && state.currentTrip.status === 'paused') {
-            return;
-        }
-
-        const distance = calculateDistance(
-            state.lastLocation.latitude,
-            state.lastLocation.longitude,
-            newLocation.latitude,
-            newLocation.longitude
-        );
-
-        // Validate distance (filter unrealistic jumps)
-        if (distance > 1000) { // More than 1km jump
-            console.warn('[TripManager] Distance jump too large, ignoring:', distance);
-            return;
-        }
-
-        state.totalDistance += distance / 1000; // Convert to km
-        state.lastLocation = newLocation;
-
-        // Update in Firebase periodically (every 10 updates or 1km)
-        if (state.totalDistance % 1 < 0.1) { // Roughly every 1km
-            updateTripDistance();
-        }
-    }
-
-    /**
-     * Update trip distance in Firebase
-     */
-    async function updateTripDistance() {
-        if (!state.isActive || !state.currentTrip) return;
-
-        try {
-            await firebase.database()
-                .ref(`trips/${state.currentTrip.busId}/${state.currentTrip.tripId}/distance`)
-                .set(Math.round(state.totalDistance * 100) / 100); // Round to 2 decimals
-
-        } catch (error) {
-            console.error('[TripManager] Failed to update distance:', error);
-        }
-    }
-
-    /**
-     * Calculate distance between two points (Haversine formula)
-     */
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371000; // Earth radius in meters
-        const dLat = toRadians(lat2 - lat1);
-        const dLon = toRadians(lon2 - lon1);
-
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                  Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
-                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
-
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
-    }
-
-    function toRadians(degrees) {
-        return degrees * Math.PI / 180;
-    }
-
-    // ============================================================
-    // STOP MANAGEMENT
-    // ============================================================
-
-    /**
-     * Mark stop visited
-     */
-    async function markStop(stopId, stopName, location) {
-        if (!state.isActive || !state.currentTrip) {
-            throw new Error('No active trip');
-        }
-
-        const now = Date.now();
-        const stopData = {
-            stopId: stopId,
-            stopName: stopName,
-            location: location || await getCurrentLocation(),
-            timestamp: now,
-            studentsBoarded: [],
-            studentsDropped: []
-        };
-
-        state.stops.push(stopData);
-
-        try {
-            await firebase.database()
-                .ref(`trips/${state.currentTrip.busId}/${state.currentTrip.tripId}/stops`)
-                .push(stopData);
-
-            console.log('[TripManager] Stop marked:', stopName);
-
-            if (window.TripManagerCallbacks && window.TripManagerCallbacks.onStopReached) {
-                window.TripManagerCallbacks.onStopReached(stopData);
-            }
-
-            return stopData;
-
-        } catch (error) {
-            console.error('[TripManager] Failed to mark stop:', error);
-            throw error;
-        }
-    }
-
-    // ============================================================
-    // STUDENT MANAGEMENT
-    // ============================================================
-
-    /**
-     * Mark student boarded
-     */
-    async function markStudentBoarded(studentId, studentName, stopId) {
-        if (!state.isActive || !state.currentTrip) {
-            throw new Error('No active trip');
-        }
-
-        const now = Date.now();
-        const boardingData = {
-            studentId: studentId,
-            studentName: studentName,
-            stopId: stopId,
-            timestamp: now,
-            location: await getCurrentLocation()
-        };
-
-        state.studentsBoarded.push(boardingData);
-
-        try {
-            await firebase.database()
-                .ref(`trips/${state.currentTrip.busId}/${state.currentTrip.tripId}/studentsBoarded/${studentId}`)
-                .set(boardingData);
-
-            // Update student status
-            await firebase.database()
-                .ref(`students/${studentId}/status`)
-                .set('onboard');
-
-            console.log('[TripManager] Student boarded:', studentName);
-
-            if (window.TripManagerCallbacks && window.TripManagerCallbacks.onStudentBoarded) {
-                window.TripManagerCallbacks.onStudentBoarded(boardingData);
-            }
-
-            return boardingData;
-
-        } catch (error) {
-            console.error('[TripManager] Failed to mark student boarded:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Mark student dropped off
-     */
-    async function markStudentDropped(studentId, studentName, stopId) {
-        if (!state.isActive || !state.currentTrip) {
-            throw new Error('No active trip');
-        }
-
-        const now = Date.now();
-        const dropoffData = {
-            studentId: studentId,
-            studentName: studentName,
-            stopId: stopId,
-            timestamp: now,
-            location: await getCurrentLocation()
-        };
-
-        state.studentsDropped.push(dropoffData);
-
-        try {
-            await firebase.database()
-                .ref(`trips/${state.currentTrip.busId}/${state.currentTrip.tripId}/studentsDropped/${studentId}`)
-                .set(dropoffData);
-
-            // Update student status
-            await firebase.database()
-                .ref(`students/${studentId}/status`)
-                .set('home');
-
-            console.log('[TripManager] Student dropped off:', studentName);
-
-            if (window.TripManagerCallbacks && window.TripManagerCallbacks.onStudentDropped) {
-                window.TripManagerCallbacks.onStudentDropped(dropoffData);
-            }
-
-            return dropoffData;
-
-        } catch (error) {
-            console.error('[TripManager] Failed to mark student dropped:', error);
-            throw error;
-        }
-    }
-
-    // ============================================================
-    // UTILITY FUNCTIONS
-    // ============================================================
-
-    /**
-     * Get current location
-     */
-    function getCurrentLocation() {
-        return new Promise((resolve) => {
-            if (!navigator.geolocation) {
-                resolve(null);
-                return;
-            }
-
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    resolve({
-                        latitude: position.coords.latitude,
-                        longitude: position.coords.longitude,
-                        accuracy: position.coords.accuracy,
-                        timestamp: position.timestamp || Date.now()
-                    });
-                },
-                (error) => {
-                    console.warn('[TripManager] Location error:', error);
-                    resolve(null);
-                },
-                { timeout: 5000, maximumAge: 10000 }
-            );
+      // Update bus status
+      await firebase
+        .database()
+        .ref(`buses/${state.currentTrip.busId}/status`)
+        .set({
+          status: "idle",
+          currentTrip: null,
+          lastTrip: state.currentTrip.tripId,
+          updatedAt: now,
         });
+
+      // Save to trip history
+      await firebase
+        .database()
+        .ref(
+          `tripHistory/${state.currentTrip.busId}/${state.currentTrip.tripId}`,
+        )
+        .set({
+          ...state.currentTrip,
+          ...tripSummary,
+        });
+
+      console.log("[TripManager] Trip ended:", state.currentTrip.tripId);
+      console.log("[TripManager] Trip summary:", tripSummary);
+
+      // Trigger callback
+      if (
+        window.TripManagerCallbacks &&
+        window.TripManagerCallbacks.onTripEnd
+      ) {
+        window.TripManagerCallbacks.onTripEnd(tripSummary);
+      }
+
+      // Stop auto-save
+      stopAutoSave();
+
+      // Reset state
+      const completedTrip = { ...state.currentTrip, ...tripSummary };
+      state.currentTrip = null;
+      state.isActive = false;
+      state.lastLocation = null;
+      state.totalDistance = 0;
+      state.stops = [];
+      state.studentsBoarded = [];
+      state.studentsDropped = [];
+      state.startTime = null;
+      state.pausedTime = null;
+      state.pauseDuration = 0;
+
+      return completedTrip;
+    } catch (error) {
+      console.error("[TripManager] Failed to end trip:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Pause current trip
+   */
+  async function pauseTrip(reason) {
+    if (!state.isActive || !state.currentTrip) {
+      throw new Error("No active trip to pause");
+    }
+
+    if (state.currentTrip.status === "paused") {
+      console.warn("[TripManager] Trip already paused");
+      return;
+    }
+
+    const now = Date.now();
+
+    try {
+      await firebase
+        .database()
+        .ref(`trips/${state.currentTrip.busId}/${state.currentTrip.tripId}`)
+        .update({
+          status: "paused",
+          pausedAt: now,
+          pauseReason: reason || "Driver initiated",
+          updatedAt: now,
+        });
+
+      state.currentTrip.status = "paused";
+      state.pausedTime = now;
+
+      console.log("[TripManager] Trip paused");
+
+      if (
+        window.TripManagerCallbacks &&
+        window.TripManagerCallbacks.onTripPause
+      ) {
+        window.TripManagerCallbacks.onTripPause();
+      }
+    } catch (error) {
+      console.error("[TripManager] Failed to pause trip:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Resume paused trip
+   */
+  async function resumeTrip() {
+    if (!state.isActive || !state.currentTrip) {
+      throw new Error("No trip to resume");
+    }
+
+    if (state.currentTrip.status !== "paused") {
+      console.warn("[TripManager] Trip is not paused");
+      return;
+    }
+
+    const now = Date.now();
+    const pauseLength = now - state.pausedTime;
+    state.pauseDuration += pauseLength;
+
+    try {
+      await firebase
+        .database()
+        .ref(`trips/${state.currentTrip.busId}/${state.currentTrip.tripId}`)
+        .update({
+          status: "active",
+          resumedAt: now,
+          pauseDuration: state.pauseDuration,
+          updatedAt: now,
+        });
+
+      state.currentTrip.status = "active";
+      state.pausedTime = null;
+
+      console.log("[TripManager] Trip resumed");
+
+      if (
+        window.TripManagerCallbacks &&
+        window.TripManagerCallbacks.onTripResume
+      ) {
+        window.TripManagerCallbacks.onTripResume();
+      }
+    } catch (error) {
+      console.error("[TripManager] Failed to resume trip:", error);
+      throw error;
+    }
+  }
+
+  // ============================================================
+  // DISTANCE TRACKING
+  // ============================================================
+
+  /**
+   * Update distance traveled
+   */
+  function updateDistance(newLocation) {
+    if (!state.isActive || !state.lastLocation) {
+      return;
+    }
+
+    // Don't update distance when paused
+    if (state.currentTrip && state.currentTrip.status === "paused") {
+      return;
+    }
+
+    const distance = calculateDistance(
+      state.lastLocation.latitude,
+      state.lastLocation.longitude,
+      newLocation.latitude,
+      newLocation.longitude,
+    );
+
+    // Validate distance (filter unrealistic jumps)
+    if (distance > 1000) {
+      // More than 1km jump
+      console.warn(
+        "[TripManager] Distance jump too large, ignoring:",
+        distance,
+      );
+      return;
+    }
+
+    state.totalDistance += distance / 1000; // Convert to km
+    state.lastLocation = newLocation;
+
+    // Update in Firebase periodically (every 10 updates or 1km)
+    if (state.totalDistance % 1 < 0.1) {
+      // Roughly every 1km
+      updateTripDistance();
+    }
+  }
+
+  /**
+   * Update trip distance in Firebase
+   */
+  async function updateTripDistance() {
+    if (!state.isActive || !state.currentTrip) return;
+
+    try {
+      await firebase
+        .database()
+        .ref(
+          `trips/${state.currentTrip.busId}/${state.currentTrip.tripId}/distance`,
+        )
+        .set(Math.round(state.totalDistance * 100) / 100); // Round to 2 decimals
+    } catch (error) {
+      console.error("[TripManager] Failed to update distance:", error);
+    }
+  }
+
+  /**
+   * Calculate distance between two points (Haversine formula)
+   */
+  function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371000; // Earth radius in meters
+    const dLat = toRadians(lat2 - lat1);
+    const dLon = toRadians(lon2 - lon1);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRadians(lat1)) *
+        Math.cos(toRadians(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  function toRadians(degrees) {
+    return (degrees * Math.PI) / 180;
+  }
+
+  // ============================================================
+  // STOP MANAGEMENT
+  // ============================================================
+
+  /**
+   * Mark stop visited
+   */
+  async function markStop(stopId, stopName, location) {
+    if (!state.isActive || !state.currentTrip) {
+      throw new Error("No active trip");
+    }
+
+    const now = Date.now();
+    const stopData = {
+      stopId: stopId,
+      stopName: stopName,
+      location: location || (await getCurrentLocation()),
+      timestamp: now,
+      studentsBoarded: [],
+      studentsDropped: [],
+    };
+
+    state.stops.push(stopData);
+
+    try {
+      await firebase
+        .database()
+        .ref(
+          `trips/${state.currentTrip.busId}/${state.currentTrip.tripId}/stops`,
+        )
+        .push(stopData);
+
+      console.log("[TripManager] Stop marked:", stopName);
+
+      if (
+        window.TripManagerCallbacks &&
+        window.TripManagerCallbacks.onStopReached
+      ) {
+        window.TripManagerCallbacks.onStopReached(stopData);
+      }
+
+      return stopData;
+    } catch (error) {
+      console.error("[TripManager] Failed to mark stop:", error);
+      throw error;
+    }
+  }
+
+  // ============================================================
+  // STUDENT MANAGEMENT
+  // ============================================================
+
+  /**
+   * Mark student boarded
+   */
+  async function markStudentBoarded(studentId, studentName, stopId) {
+    if (!state.isActive || !state.currentTrip) {
+      throw new Error("No active trip");
+    }
+
+    const now = Date.now();
+    const boardingData = {
+      studentId: studentId,
+      studentName: studentName,
+      stopId: stopId,
+      timestamp: now,
+      location: await getCurrentLocation(),
+    };
+
+    state.studentsBoarded.push(boardingData);
+
+    try {
+      await firebase
+        .database()
+        .ref(
+          `trips/${state.currentTrip.busId}/${state.currentTrip.tripId}/studentsBoarded/${studentId}`,
+        )
+        .set(boardingData);
+
+      // Update student status
+      await firebase
+        .database()
+        .ref(`students/${studentId}/status`)
+        .set("onboard");
+
+      console.log("[TripManager] Student boarded:", studentName);
+
+      if (
+        window.TripManagerCallbacks &&
+        window.TripManagerCallbacks.onStudentBoarded
+      ) {
+        window.TripManagerCallbacks.onStudentBoarded(boardingData);
+      }
+
+      return boardingData;
+    } catch (error) {
+      console.error("[TripManager] Failed to mark student boarded:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mark student dropped off
+   */
+  async function markStudentDropped(studentId, studentName, stopId) {
+    if (!state.isActive || !state.currentTrip) {
+      throw new Error("No active trip");
+    }
+
+    const now = Date.now();
+    const dropoffData = {
+      studentId: studentId,
+      studentName: studentName,
+      stopId: stopId,
+      timestamp: now,
+      location: await getCurrentLocation(),
+    };
+
+    state.studentsDropped.push(dropoffData);
+
+    try {
+      await firebase
+        .database()
+        .ref(
+          `trips/${state.currentTrip.busId}/${state.currentTrip.tripId}/studentsDropped/${studentId}`,
+        )
+        .set(dropoffData);
+
+      // Update student status
+      await firebase.database().ref(`students/${studentId}/status`).set("home");
+
+      console.log("[TripManager] Student dropped off:", studentName);
+
+      if (
+        window.TripManagerCallbacks &&
+        window.TripManagerCallbacks.onStudentDropped
+      ) {
+        window.TripManagerCallbacks.onStudentDropped(dropoffData);
+      }
+
+      return dropoffData;
+    } catch (error) {
+      console.error("[TripManager] Failed to mark student dropped:", error);
+      throw error;
+    }
+  }
+
+  // ============================================================
+  // UTILITY FUNCTIONS
+  // ============================================================
+
+  /**
+   * Get current location
+   */
+  function getCurrentLocation() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: position.timestamp || Date.now(),
+          });
+        },
+        (error) => {
+          console.warn("[TripManager] Location error:", error);
+          resolve(null);
+        },
+        { timeout: 5000, maximumAge: 10000 },
+      );
+    });
   }
 
   /**
@@ -1054,9 +1076,9 @@
    * Get current location
    */
   function getCurrentLocation() {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
-        resolve(null);
+        reject(new Error("Geolocation is not supported by this browser."));
         return;
       }
 
@@ -1070,10 +1092,23 @@
           });
         },
         (error) => {
-          console.warn("[TripManager] Location error:", error);
-          resolve(null);
+          let errorMessage = "Unable to retrieve location.";
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage =
+                "Location permission denied. Please enable location services.";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = "Location information is unavailable.";
+              break;
+            case error.TIMEOUT:
+              errorMessage = "The request to get user location timed out.";
+              break;
+          }
+          console.warn("[TripManager] Location error:", error.message);
+          reject(new Error(errorMessage));
         },
-        { timeout: 5000, maximumAge: 10000 },
+        { timeout: 10000, maximumAge: 0, enableHighAccuracy: true },
       );
     });
   }

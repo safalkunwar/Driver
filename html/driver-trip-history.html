@@ -144,10 +144,6 @@
 
             <div class="filter-section">
                 <div class="filter-row">
-                    <label>Bus ID:</label>
-                    <select id="busFilter">
-                        <option value="">All Buses</option>
-                    </select>
                     <label>Date Range:</label>
                     <input type="date" id="startDate" />
                     <input type="date" id="endDate" />
@@ -169,7 +165,10 @@
             let currentPathPolyline = null;
             let tripMarkers = [];
             let allTrips = [];
-            let currentBusId = localStorage.getItem("v-track-driver-busId") || "";
+            let currentUid = localStorage.getItem("vtrack_driver_uid") || "";
+            // Remove filters UI
+            const filterSection = document.querySelector('.filter-section');
+            if (filterSection) filterSection.remove();
 
             // Initialize Firebase
             function initFirebase() {
@@ -198,7 +197,7 @@
 
             const db = initFirebase();
 
-            // Initialize map
+            // Initialize map once
             function initMap() {
                 if (typeof L === 'undefined') {
                     console.error('Leaflet not loaded');
@@ -212,103 +211,43 @@
                 }).addTo(historyMap);
             }
 
-            // Load available buses
-            async function loadBuses() {
-                if (!db) return;
-
-                try {
-                    const snapshot = await db.ref('busDetails').once('value');
-                    const buses = snapshot.val() || {};
-                    const busFilter = document.getElementById('busFilter');
-                    
-                    busFilter.innerHTML = '<option value="">All Buses</option>';
-                    
-                    Object.keys(buses).forEach(busId => {
-                        const option = document.createElement('option');
-                        option.value = busId;
-                        option.textContent = `${busId} - ${buses[busId].busName || busId}`;
-                        busFilter.appendChild(option);
-                    });
-
-                    // Set current bus if available
-                    if (currentBusId) {
-                        busFilter.value = currentBusId;
-                    }
-                } catch (error) {
-                    console.error('Error loading buses:', error);
-                }
-            }
-
-            // Load trip history
+            // Load trip history for this driver
             async function loadTripHistory() {
-                if (!db) return;
-
-                const busFilter = document.getElementById('busFilter').value;
-                const startDate = document.getElementById('startDate').value;
-                const endDate = document.getElementById('endDate').value;
-
                 try {
+                    const db = window.VTFirebase ? window.VTFirebase.getDb() : null;
+                    if (!db || !currentUid) return;
+                    const snap = await db.ref('drivers/trips/' + currentUid).once('value');
                     let trips = [];
-
-                    if (busFilter) {
-                        // Load trips for specific bus
-                        const snapshot = await db.ref(`tripHistory/${busFilter}`).once('value');
-                        const busTrips = snapshot.val() || {};
-                        Object.entries(busTrips).forEach(([tripId, trip]) => {
-                            trips.push({ ...trip, tripId });
-                        });
-                    } else {
-                        // Load all trips
-                        const snapshot = await db.ref('tripHistory').once('value');
-                        const allBusTrips = snapshot.val() || {};
-                        
-                        Object.entries(allBusTrips).forEach(([busId, busTrips]) => {
-                            if (busId === 'drivers') return; // Skip driver index
-                            Object.entries(busTrips).forEach(([tripId, trip]) => {
-                                trips.push({ ...trip, tripId, busId });
-                            });
-                        });
-                    }
-
-                    // Filter by date range
-                    if (startDate || endDate) {
-                        const start = startDate ? new Date(startDate).getTime() : 0;
-                        const end = endDate ? new Date(endDate).getTime() + 86400000 : Infinity;
-                        
-                        trips = trips.filter(trip => {
-                            const tripTime = trip.startTime || trip.createdAt || 0;
-                            return tripTime >= start && tripTime <= end;
-                        });
-                    }
-
-                    // Sort by start time (newest first)
+                    const tripsObj = snap.val() || {};
+                    Object.entries(tripsObj).forEach(([tripId, trip]) => { trips.push({ ...trip, tripId }); });
                     trips.sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
-
                     allTrips = trips;
                     renderTripList(trips);
+                    // Show active trip's route if present
+                    const activeTrip = trips.find(t => t.status === 'active');
+                    if (activeTrip) {
+                        showTripRouteOnMap(activeTrip);
+                    }
                 } catch (error) {
                     console.error('Error loading trip history:', error);
                 }
             }
 
-            // Render trip list
+            // Render trip list (same as before but remove onClick on trip card if desired)
             function renderTripList(trips) {
                 const container = document.getElementById('tripListContainer');
-                
                 if (trips.length === 0) {
-                    container.innerHTML = '<div class="no-trips"><h3>No trips found</h3><p>No trips match your filters.</p></div>';
+                    container.innerHTML = '<div class="no-trips"><h3>No trips found</h3><p>No trips available for your account.</p></div>';
                     return;
                 }
-
                 container.innerHTML = trips.map(trip => {
                     const startTime = new Date(trip.startTime || trip.createdAt || 0);
                     const endTime = trip.endTime ? new Date(trip.endTime) : null;
                     const duration = endTime ? Math.round((endTime - startTime) / 60000) : 'Ongoing';
                     const distance = trip.distance ? trip.distance.toFixed(2) : '0.00';
                     const status = trip.status || 'unknown';
-
                     return `
-                        <div class="trip-card" onclick="showTripPath('${trip.tripId}', '${trip.busId || ''}')">
+                        <div class="trip-card${status === 'active' ? ' active' : ''}" data-trip-id="${trip.tripId}">
                             <h3>${trip.routeName || trip.routeId || 'Trip'}</h3>
                             <div class="trip-info">
                                 <div><strong>Trip ID:</strong> ${trip.tripId}</div>
@@ -318,120 +257,76 @@
                                 <div><strong>Duration:</strong> ${duration} min</div>
                                 <div><strong>Distance:</strong> ${distance} km</div>
                                 <div><strong>Status:</strong> <span style="color: ${status === 'completed' ? '#22c55e' : status === 'active' ? '#3b82f6' : '#f59e0b'}">${status}</span></div>
-                                <div><strong>Stops:</strong> ${trip.totalStops || trip.stops?.length || 0}</div>
+                                <div><strong>Stops:</strong> ${trip.totalStops || (trip.stops?.length) || 0}</div>
                             </div>
-                        </div>
-                    `;
+                        </div>`;
                 }).join('');
             }
 
-            // Show trip path on map
-            async function showTripPath(tripId, busId) {
-                if (!db || !historyMap) return;
-
-                // Clear previous path
-                if (currentPathPolyline) {
-                    historyMap.removeLayer(currentPathPolyline);
-                }
+            // Show trip route on the map (driver-route.html style)
+            async function showTripRouteOnMap(trip) {
+                if (!trip || !trip.routeId || !historyMap) return;
+                // Remove previous overlays
+                if (currentPathPolyline) { historyMap.removeLayer(currentPathPolyline); currentPathPolyline = null; }
                 tripMarkers.forEach(marker => historyMap.removeLayer(marker));
                 tripMarkers = [];
-
-                // Find trip
-                const trip = allTrips.find(t => t.tripId === tripId);
-                if (!trip) return;
-
-                const targetBusId = busId || trip.busId;
-                if (!targetBusId) return;
-
-                try {
-                    // Get location data for this trip's time range
-                    const startTime = trip.startTime || trip.createdAt || 0;
-                    const endTime = trip.endTime || Date.now();
-
-                    const snapshot = await db.ref(`BusLocation/${targetBusId}`).once('value');
-                    const locationData = snapshot.val() || {};
-
-                    // Filter locations within trip time range
-                    const tripLocations = [];
-                    Object.entries(locationData).forEach(([timestamp, location]) => {
-                        const ts = parseInt(timestamp);
-                        if (!isNaN(ts) && ts >= startTime && ts <= endTime && location.latitude && location.longitude) {
-                            tripLocations.push({
-                                lat: location.latitude,
-                                lng: location.longitude,
-                                timestamp: ts
-                            });
-                        }
-                    });
-
-                    // Sort by timestamp
-                    tripLocations.sort((a, b) => a.timestamp - b.timestamp);
-
-                    if (tripLocations.length === 0) {
-                        alert('No location data found for this trip');
-                        return;
-                    }
-
-                    // Draw path
-                    const latlngs = tripLocations.map(loc => [loc.lat, loc.lng]);
-                    currentPathPolyline = L.polyline(latlngs, {
-                        color: '#3b82f6',
-                        weight: 4,
-                        opacity: 0.7
-                    }).addTo(historyMap);
-
-                    // Add start marker
-                    if (tripLocations.length > 0) {
-                        const startLoc = tripLocations[0];
-                        const startMarker = L.marker([startLoc.lat, startLoc.lng], {
-                            icon: L.divIcon({
-                                className: 'custom-start-marker',
-                                html: '<div style="background: #22c55e; color: white; padding: 8px; border-radius: 50%; font-size: 16px; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🚩</div>',
-                                iconSize: [30, 30],
-                                iconAnchor: [15, 15]
-                            })
-                        }).addTo(historyMap);
-                        startMarker.bindPopup(`<strong>Start</strong><br>${new Date(startLoc.timestamp).toLocaleString()}`);
-                        tripMarkers.push(startMarker);
-                    }
-
-                    // Add end marker
-                    if (tripLocations.length > 1) {
-                        const endLoc = tripLocations[tripLocations.length - 1];
-                        const endMarker = L.marker([endLoc.lat, endLoc.lng], {
-                            icon: L.divIcon({
-                                className: 'custom-end-marker',
-                                html: '<div style="background: #ef4444; color: white; padding: 8px; border-radius: 50%; font-size: 16px; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🏁</div>',
-                                iconSize: [30, 30],
-                                iconAnchor: [15, 15]
-                            })
-                        }).addTo(historyMap);
-                        endMarker.bindPopup(`<strong>End</strong><br>${new Date(endLoc.timestamp).toLocaleString()}`);
-                        tripMarkers.push(endMarker);
-                    }
-
-                    // Fit map to path
-                    historyMap.fitBounds(currentPathPolyline.getBounds(), { padding: [50, 50] });
-
-                    // Highlight selected trip card
-                    document.querySelectorAll('.trip-card').forEach(card => {
-                        card.classList.remove('active');
-                    });
-                    event.currentTarget.classList.add('active');
-                } catch (error) {
-                    console.error('Error loading trip path:', error);
-                    alert('Error loading trip path: ' + error.message);
+                if (window.currentRoutingControl) {
+                    try { historyMap.removeControl(window.currentRoutingControl); } catch(e){}
+                    window.currentRoutingControl = null;
                 }
+                // Fetch route points
+                const db = window.VTFirebase ? window.VTFirebase.getDb() : null;
+                try {
+                    const snap = await db.ref('routes/' + trip.routeId).once('value');
+                    const route = snap.val() || {};
+                    if (!route.points || !route.points.length) return;
+                    const pointsArray = route.points.filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+                    if (pointsArray.length === 0) return;
+                    const waypoints = pointsArray.map(p => L.latLng(p.lat, p.lng));
+                    // If Leaflet Routing Machine is available, use it for a nice curved route
+                    if (typeof L.Routing !== 'undefined' && L.Routing.control) {
+                        try {
+                            window.currentRoutingControl = L.Routing.control({
+                                waypoints,
+                                routeWhileDragging: false,
+                                addWaypoints: false,
+                                show: false,
+                                lineOptions: { styles: [{ color: '#1a73e8', weight: 5, opacity: 0.9 }] },
+                                createMarker: (i, wp) => L.marker(wp.latLng, {
+                                    icon: L.divIcon({
+                                        className: 'route-marker',
+                                        html: `<b>${i + 1}</b>`,
+                                        iconSize: [24, 24],
+                                        iconAnchor: [12, 12]
+                                    })
+                                }).bindPopup(`<b>${pointsArray[i].name || `Stop ${i+1}`}</b>`)
+                            })
+                            .on('routesfound', (e) => {
+                                const coords = e.routes[0].coordinates.map(c => [c.lat, c.lng]);
+                                historyMap.fitBounds(L.latLngBounds(coords), { padding: [20, 20] });
+                            })
+                            .addTo(historyMap);
+                        } catch (err) {/* fallback below */}
+                    } else {
+                        // Fallback: draw polyline and markers
+                        const latlngs = waypoints.map(w => [w.lat, w.lng]);
+                        currentPathPolyline = L.polyline(latlngs, { color:'#1a73e8', weight:5, opacity:0.9 }).addTo(historyMap);
+                        pointsArray.forEach((point, i) => {
+                            const marker = L.marker([point.lat, point.lng], {
+                                icon: L.divIcon({ className: 'route-marker', html: `<b>${i+1}</b>`, iconSize: [24,24], iconAnchor: [12,12] })
+                            }).bindPopup(`<b>${point.name || `Stop ${i+1}`}</b>`).addTo(historyMap);
+                            tripMarkers.push(marker);
+                        });
+                        historyMap.fitBounds(currentPathPolyline.getBounds(), {padding: [20,20]});
+                    }
+                } catch(e) { console.error('Cannot load route', e); }
             }
 
-            // Apply filters
             function applyFilters() {
                 loadTripHistory();
             }
 
-            // Clear filters
             function clearFilters() {
-                document.getElementById('busFilter').value = currentBusId || '';
                 document.getElementById('startDate').value = '';
                 document.getElementById('endDate').value = '';
                 loadTripHistory();
@@ -440,7 +335,6 @@
             // Initialize on page load
             window.addEventListener('DOMContentLoaded', () => {
                 initMap();
-                loadBuses();
                 loadTripHistory();
             });
 

@@ -228,13 +228,7 @@ body {
 }
 
 /* === Bottom Nav === */
-.bottom-nav {
-  display: flex;
-  justify-content: space-around;
-  background: #0d1117;
-  border-top: 1px solid #1f2937;
-  padding: 8px 0;
-}
+
 .nav-btn {
   flex: 1;
   border: none;
@@ -414,6 +408,46 @@ body {
   text-decoration: none;
   transition: all 0.3s ease;
 }
+
+.route-actions {
+    padding: 16px;
+}
+.route-details h3,
+.checkpoints h3 {
+    color: var(--accent);
+    margin-bottom: 8px;
+}
+.route-card {
+    background: #1f2937;
+    padding: 10px;
+    border-radius: 10px;
+}
+.checkpoints ul {
+    list-style: none;
+    margin-top: 6px;
+}
+.checkpoints li {
+    background: #1f2937;
+    margin-bottom: 6px;
+    padding: 8px 10px;
+    border-radius: 8px;
+}
+.route-actions {
+    display: flex;
+    justify-content: space-around;
+}
+.route-actions button {
+    padding: 10px 14px;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: white;
+    font-weight: 500;
+}
+.route-actions .danger {
+    background: var(--danger);
+}
+
 
 .nav-btn.active,
 .nav-btn:hover {
