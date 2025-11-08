@@ -17,12 +17,8 @@
         <div class="driver-app">
             <!-- Header -->
             <header class="driver-header">
-                <div class="header-left">
-                    <h1>V-Track</h1>
-                    <p class="subtitle">Driver Dashboard</p>
-                </div>
+               
                 <div class="header-right">
-                    <div class="status online">🟢 Connected</div>
                     <div id="busSelectorContainer" style="display: inline-block; margin-left: 15px;">
                         <select id="busSelectDropdown" style="
                             padding: 6px 12px;
@@ -36,28 +32,8 @@
                         ">
                             <option value="">Select Bus</option>
                         </select>
-                        <button id="refreshBusListBtn" style="
-                            margin-left: 8px;
-                            padding: 6px 12px;
-                            background: #3b82f6;
-                            color: white;
-                            border: none;
-                            border-radius: 6px;
-                            cursor: pointer;
-                            font-size: 14px;
-                        ">🔄</button>
                     </div>
-                    <span id="busLabel" style="margin-left: 15px;">Bus: —</span>
-                    <span
-                        id="busCounter"
-                        style="
-                            margin-left: 15px;
-                            color: #22c55e;
-                            font-weight: 600;
-                        "
-                    >
-                        🚌 <span id="onlineBusCount">0</span> buses online
-                    </span>
+            
                 </div>
             </header>
 
@@ -71,21 +47,21 @@
             </section>
 
             <!-- Trip Controls (Minimal) -->
-            <section class="trip-controls-minimal">
-                <button class="control primary" id="startTripBtn">🚀 Start Trip</button>
-                <button class="control stop" id="endTripBtn" disabled>🏁 End Trip</button>
-                <button class="control" id="pauseTripBtn" disabled>⏸️ Pause</button>
+            <section class="route-actions">
+                <button class="control primary" id="startTripBtn">▶ Start Trip</button>
+                <button class="control stop" id="endTripBtn" disabled>⏹ End Trip</button>
+                <button class="control" id="pauseTripBtn" disabled>⏸ Pause</button>
+                <button class="nav-btn" id="navFocusBtn">🚗 Focus</button>
             </section>
-
-            <!-- Emergency Button (Fixed Position) -->
+<!-- Emergency Button (Fixed Position) -->
             <button
                 id="emergencyBtn"
                 style="
                     position: fixed;
-                    bottom: 100px;
-                    right: 20px;
-                    width: 80px;
-                    height: 80px;
+                        bottom: 328px;
+                    right: 36px;
+                    width: 60px;
+                    height: 60px;
                     background: linear-gradient(135deg, #ef4444, #dc2626);
                     color: white;
                     border: none;
@@ -249,7 +225,7 @@
                 <button class="nav-btn active">🗺️ Map</button>
                 <button class="nav-btn" id="navRouteBtn">📍 Route</button>
                 <button class="nav-btn">👥 Students</button>
-                <button class="nav-btn" id="navFocusBtn">🚗 Focus</button>
+              
                 <button class="nav-btn">📊 History</button>
                 <button class="nav-btn">👤 Profile</button>
             </nav>
@@ -385,6 +361,7 @@
 
             /* Ensure all nav buttons are visible */
             .bottom-nav {
+                
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
                 scrollbar-width: none;
@@ -448,39 +425,7 @@
             }
 
             /* Bottom nav - matching driver-route.css */
-            .bottom-nav {
-                position: fixed;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                background: white;
-                border-top: 1px solid #e5e7eb;
-                display: flex;
-                justify-content: space-around;
-                align-items: center;
-                padding: 8px 0;
-                z-index: 1000;
-                box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-            }
-            .bottom-nav .nav-btn {
-                flex: 1;
-                padding: 10px 8px;
-                background: none;
-                border: none;
-                color: #6b7280;
-                font-weight: 500;
-                cursor: pointer;
-                font-size: 12px;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 4px;
-            }
-            .bottom-nav .nav-btn.active {
-                color: #3b82f6;
-                font-weight: 600;
-            }
-
+  
             /* Trip controls responsive */
             @media (max-width: 480px) {
                 .trip-controls-minimal {
