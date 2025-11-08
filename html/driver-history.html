@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Driver History</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; }
+    .container { max-width: 960px; margin: 0 auto; }
+    .card { border: 1px solid #ddd; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
+    .row { margin-bottom: 12px; }
+    label { margin-right: 8px; }
+    input[type="text"], input[type="datetime-local"] { padding: 8px; }
+    button { padding: 10px 12px; }
+    .error { color: red; margin-top: 8px; }
+    .loc { padding: 8px; border-bottom: 1px solid #eee; }
+  </style>
+  <!-- Firebase CDN (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <script src="./firebase-config.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h2>Driver History</h2>
+      <div id="authState" class="row"></div>
+
+      <div class="row">
+        <label>Bus Key</label>
+        <input id="busKey" type="text" placeholder='e.g., "bus1", "bus2", "bus_1750177793800"' />
+        <button id="saveBusKeyBtn">Save</button>
+        <span id="resolved">Resolved: (not set)</span>
+      </div>
+
+      <div class="row">
+        <label>Start</label>
+        <input id="start" type="datetime-local" />
+        <label style="margin-left: 12px;">End</label>
+        <input id="end" type="datetime-local" />
+        <button id="applyFilterBtn" style="margin-left: 12px;">Apply</button>
+      </div>
+
+      <div class="row">
+        <button id="logoutBtn">Logout</button>
+        <button onclick="location.href='driver-login.html'">Back to Login</button>
+      </div>
+
+      <div id="error" class="error"></div>
+    </div>
+
+    <div class="card">
+      <h3>Locations</h3>
+      <div id="locations"></div>
+    </div>
+  </div>
+
+  <script>
+    const authStateEl = document.getElementById('authState');
+    const errorEl = document.getElementById('error');
+    const busKeyEl = document.getElementById('busKey');
+    const resolvedEl = document.getElementById('resolved');
+    const locationsEl = document.getElementById('locations');
+    const saveBusKeyBtn = document.getElementById('saveBusKeyBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    let currentUser = null;
+    let resolvedBusKey = '';
+    let allLocations = []; // [{ timestamp, latitude, longitude }]
+
+    function fmt(ts) {
+      return new Date(ts).toLocaleString();
+    }
+
+    function renderLocations(list) {
+      locationsEl.innerHTML = '';
+      if (!list || list.length === 0) {
+        locationsEl.innerHTML = '<div>No locations for selected range.</div>';
+        return;
+      }
+      list.forEach((loc) => {
+        const div = document.createElement('div');
+        div.className = 'loc';
+        div.innerHTML = '<div><strong>' + fmt(loc.timestamp) + '</strong></div>' +
+                        '<div>Lat: ' + Number(loc.latitude).toFixed(6) + ' | Lng: ' + Number(loc.longitude).toFixed(6) + '</div>';
+        locationsEl.appendChild(div);
+      });
+    }
+
+    function applyFilter() {
+      const startVal = document.getElementById('start').value;
+      const endVal = document.getElementById('end').value;
+      const s = startVal ? new Date(startVal).getTime() : -Infinity;
+      const e = endVal ? new Date(endVal).getTime() : Infinity;
+      const filtered = allLocations.filter(l => l.timestamp >= s && l.timestamp <= e);
+      renderLocations(filtered);
+    }
+    document.getElementById('applyFilterBtn').addEventListener('click', applyFilter);
+
+    async function resolveBusKeyForUser(uid) {
+      errorEl.textContent = '';
+      try {
+        const busKeySnap = await db.ref('drivers/' + uid + '/busKey').get();
+        const profileBusKey = busKeySnap.exists() ? busKeySnap.val() : '';
+
+        if (profileBusKey) {
+          resolvedBusKey = profileBusKey;
+          busKeyEl.value = profileBusKey;
+          resolvedEl.textContent = 'Resolved: ' + resolvedBusKey;
+          return;
+        }
+
+        // Fallback: busDetails by driverId
+        const qSnap = await db.ref('busDetails').orderByChild('driverId').equalTo(uid).get();
+        const candidates = [];
+        if (qSnap.exists()) {
+          qSnap.forEach((childSnap) => {
+            const v = childSnap.val() || {};
+            if (v.busKey) candidates.push(String(v.busKey));
+            if (v.busNumber) candidates.push(String(v.busNumber));
+            if (v.busName) candidates.push(String(v.busName));
+          });
+        }
+
+        // Find a candidate that exists under BusLocation
+        for (const c of candidates) {
+          const locSnap = await db.ref('BusLocation/' + c).get();
+          if (locSnap.exists()) {
+            resolvedBusKey = c;
+            busKeyEl.value = c;
+            resolvedEl.textContent = 'Resolved: ' + resolvedBusKey;
+            return;
+          }
+        }
+
+        resolvedBusKey = '';
+        resolvedEl.textContent = 'Resolved: (not set)';
+      } catch (err) {
+        errorEl.textContent = err.message || 'Failed to resolve bus key';
+        resolvedBusKey = '';
+        resolvedEl.textContent = 'Resolved: (not set)';
+      }
+    }
+
+    async function subscribeLocations() {
+      locationsEl.innerHTML = '';
+      allLocations = [];
+      if (!resolvedBusKey) return;
+
+      const refPath = 'BusLocation/' + resolvedBusKey;
+      db.ref(refPath).off(); // clear any previous subscription
+      db.ref(refPath).on('value', (snap) => {
+        const items = [];
+        snap.forEach((childSnap) => {
+          const tsKey = Number(childSnap.key);
+          const v = childSnap.val();
+          if (v && typeof v.latitude === 'number' && typeof v.longitude === 'number') {
+            items.push({ timestamp: tsKey, latitude: v.latitude, longitude: v.longitude });
+          }
+        });
+        items.sort((a, b) => a.timestamp - b.timestamp);
+        allLocations = items;
+        applyFilter();
+      }, (err) => {
+        errorEl.textContent = err.message || 'Failed to read BusLocation';
+      });
+    }
+
+    async function saveBusKey() {
+      errorEl.textContent = '';
+      const key = busKeyEl.value.trim();
+      if (!currentUser || !key) return;
+      try {
+        await db.ref('drivers/' + currentUser.uid + '/busKey').set(key);
+        await db.ref('drivers/' + currentUser.uid + '/busKeySavedAt').set(firebase.database.ServerValue.TIMESTAMP);
+        resolvedBusKey = key;
+        resolvedEl.textContent = 'Resolved: ' + resolvedBusKey;
+        subscribeLocations();
+      } catch (err) {
+        errorEl.textContent = err.message || 'Failed to save bus key';
+      }
+    }
+    saveBusKeyBtn.addEventListener('click', saveBusKey);
+
+    logoutBtn.addEventListener('click', async () => {
+      try {
+        await auth.signOut();
+        location.href = 'driver-login.html';
+      } catch (err) {
+        errorEl.textContent = err.message || 'Logout failed';
+      }
+    });
+
+    auth.onAuthStateChanged(async (user) => {
+      currentUser = user || null;
+      if (!user) {
+        authStateEl.innerHTML = 'Not signed in. <a href="driver-login.html">Go to Login</a>';
+        resolvedBusKey = '';
+        resolvedEl.textContent = 'Resolved: (not set)';
+        locationsEl.innerHTML = '';
+        return;
+      }
+      authStateEl.textContent = 'Signed in as: ' + (user.email || user.uid);
+      await resolveBusKeyForUser(user.uid);
+      subscribeLocations();
+    });
+  </script>
+</body>
+</html>

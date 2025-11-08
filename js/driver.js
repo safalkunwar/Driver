@@ -109,13 +109,19 @@ function selectBus(busId, showSelector = true) {
     currentBusId = busId;
     saveBusId(busId);
     
-    document.getElementById('connectedBusId').textContent = busId;
-    document.getElementById('connectionIndicator').style.display = 'block';
-    document.getElementById('busSelector').style.display = 'none';
-    document.getElementById('appContainer').style.display = 'block';
-    document.getElementById('busSelectDropdown').value = busId;
+    const connectedBusIdEl = document.getElementById('connectedBusId');
+    const connectionIndicatorEl = document.getElementById('connectionIndicator');
+    const busSelectorEl = document.getElementById('busSelector');
+    const appContainerEl = document.getElementById('appContainer');
+    const busSelectDropdownEl = document.getElementById('busSelectDropdown');
     
-    if (!showSelector) {
+    if (connectedBusIdEl) connectedBusIdEl.textContent = busId;
+    if (connectionIndicatorEl) connectionIndicatorEl.style.display = 'block';
+    if (busSelectorEl) busSelectorEl.style.display = 'none';
+    if (appContainerEl) appContainerEl.style.display = 'block';
+    if (busSelectDropdownEl) busSelectDropdownEl.value = busId;
+    
+        if (!showSelector) {
         // Initialize map
         if (window.VTMapAPI && window.VTMapAPI.initDriverMap) {
             window.VTMapAPI.initDriverMap();
@@ -124,7 +130,8 @@ function selectBus(busId, showSelector = true) {
         } else {
             initMap();
         }
-        loadRouteHistory();
+        // Route history loading disabled - don't show path traveled
+        // loadRouteHistory();
         // Start alerts listener for this bus
         startAlertsListener();
     }
@@ -156,7 +163,28 @@ function switchBus(newBusId) {
 function initMap() {
     if (map) return;
     
-    map = L.map('map').setView([28.2150, 83.9886], 13);
+    // Check if Leaflet is loaded
+    if (typeof L === 'undefined') {
+        console.error('Leaflet library not loaded. Please ensure leaflet.js is included before driver.js');
+        return;
+    }
+    
+    // Check if map container exists
+    const mapContainer = document.getElementById('map') || document.querySelector('.map-placeholder');
+    if (!mapContainer) {
+        console.warn('Map container not found');
+        return;
+    }
+    
+    // Use map container or create one
+    const mapId = mapContainer.id || 'map';
+    if (!mapContainer.id) {
+        mapContainer.id = 'map';
+        mapContainer.style.height = '100%';
+        mapContainer.style.width = '100%';
+    }
+    
+    map = L.map(mapId).setView([28.2150, 83.9886], 13);
     
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'

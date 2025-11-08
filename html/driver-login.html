@@ -54,8 +54,20 @@
 				msg.textContent = e.message || 'Login failed';
 			}
 		});
+		    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const errorEl = document.getElementById('error');
+      errorEl.textContent = '';
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+        // Redirect to driver-route.html to view routes (was 'driver-history.html')
+        location.href = 'driver-route.html';
+      } catch (err) {
+        errorEl.textContent = err.message || 'Login failed';
+      }
+    });
 	</script>
 </body>
 </html>
-
-

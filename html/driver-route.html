@@ -1,75 +1,106 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>V-Track | Route Overview</title>
-        <link rel="stylesheet" href="../css/driver-route.css" />
-        <link rel="stylesheet" href="../css/driver.css" />
-        <link
-            rel="stylesheet"
-            href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        />
-        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    </head>
-    <body>
-        <div class="driver-route-app">
-            <header class="route-header">
-                <h1>🗺️ My Route</h1>
-                <button class="back-btn" onclick="window.history.back()">
-                    ← Back
-                </button>
-            </header>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>V-Track | Route Overview</title>
+  <link rel="stylesheet" href="../css/driver-route.css" />
+   <link rel="stylesheet" href="../css/driver.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+  <style>
+    /* Custom styles for route markers */
+    .route-marker {
+      background: #1a73e8;
+      border: 2px solid white;
+      border-radius: 50%;
+      width: 24px !important;
+      height: 24px !important;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    
+    .bus-marker {
+      background: transparent;
+      border: none;
+      font-size: 28px;
+      animation: busBounce 0.8s ease-in-out infinite alternate;
+    }
+    
+    @keyframes busBounce {
+      0% { transform: translateY(0px); }
+      100% { transform: translateY(-5px); }
+    }
+    
+    .leaflet-popup-content {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    .leaflet-popup-content h3 {
+      color: #1a73e8;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+    
+    .leaflet-popup-content p {
+      margin: 4px 0;
+      font-size: 14px;
+    }
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+</head>
+<body>
+  <div class="driver-route-app">
 
-            <section class="map-container">
-                <div
-                    id="map"
-                    style="height: 100%; width: 100%; min-height: 250px"
-                ></div>
-            </section>
+    <header class="route-header">
+      <h1>🗺️ My Route</h1>
+      <button class="back-btn" onclick="window.history.back()">← Back</button>
+    </header>
 
     <section class="map-container">
-      <div class="map-placeholder">
-        <p>Map will appear here (showing current bus and route path)</p>
-      </div>
+      <div id="driverRouteMap" style="width: 100%; height: 400px; border-radius: 8px; overflow: hidden;"></div>
     </section>
 
-            <section class="checkpoints">
-                <h3>🚏 Checkpoints</h3>
-                <ul>
-                    <li>Pokhara Bus Stop</li>
-                    <li>Baglung Highway Point</li>
-                    <li>Damauli Stop</li>
-                    <li>Narayanghat Junction</li>
-                    <li>Suklaphanta Bus Station</li>
-                </ul>
-            </section>
-
-            <section class="route-actions">
-                <button class="start-route">▶ Start Route</button>
-                <button class="pause-route">⏸ Pause</button>
-                <button class="end-route danger">⏹ End Route</button>
-            </section>
-            <nav class="bottom-nav">
-                <button class="nav-btn active">Map</button>
-                <button class="nav-btn">Route</button>
-                <button class="nav-btn">Students</button>
-                <button class="nav-btn">Alerts</button>
-                <button class="nav-btn">Profile</button>
-            </nav>
-            <footer class="footer">
-                <p>V-Track Driver Portal © 2025</p>
-            </footer>
-        </div>
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <script src="../js/firebase.js"></script>
-        <script src="../js/utils.js"></script>
-        <script src="../js/map.js"></script>
-        <script src="../js/app-bootstrap.js"></script>
-        <script src="../js/pages/common-bindings.js"></script>
-        <script src="../js/pages/route.js"></script>
-        <script src="../js/pages/history.js"></script>
-        <script src="../js/driver.js"></script>
-    </body>
+    <section class="route-details">
+      <h3>📍 Route Details</h3>
+      <div class="route-card">
+        <p><strong>From:</strong> Lakeside, Pokhara</p>
+        <p><strong>To:</strong> Suklaphanta</p>
+        <p><strong>Distance:</strong> 302 km</p>
+        <p><strong>Estimated Time:</strong> 6 hrs 30 min</p>
+      </div>
+    </section>
+    <section class="route-actions">
+      <button class="start-route" id="startRouteBtn">▶ Start Route</button>
+      <button class="pause-route" id="pauseRouteBtn" disabled>⏸ Pause</button>
+      <button class="end-route danger" id="endRouteBtn" disabled>⏹ End Route</button>
+    </section>
+<nav class="bottom-nav">
+      <button class="nav-btn active">Map</button>
+      <button class="nav-btn">Route</button>
+      <button class="nav-btn">Students</button>
+      <button class="nav-btn">Alerts</button>
+      <button class="nav-btn">Profile</button>
+    </nav>
+    <footer class="footer">
+      <p>V-Track Driver Portal © 2025</p>
+    </footer>
+  </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <script src="../js/firebase.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/map.js"></script>
+    <script src="../js/app-bootstrap.js"></script>
+    <script src="../js/pages/common-bindings.js"></script>
+    <script src="../js/pages/route.js"></script>
+    <script src="../js/pages/history.js"></script>
+    <script src="../js/driver.js"></script>
+</body>
 </html>
