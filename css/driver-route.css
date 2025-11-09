@@ -87,21 +87,9 @@ body {
     padding: 8px 10px;
     border-radius: 8px;
 }
-.route-actions {
-    display: flex;
-    justify-content: space-around;
-}
-.route-actions button {
-    padding: 10px 14px;
-    border: none;
-    border-radius: 10px;
-    background: var(--accent);
-    color: white;
-    font-weight: 500;
-}
-.route-actions .danger {
-    background: var(--danger);
-}
+
+
+
 
 .footer {
     text-align: center;

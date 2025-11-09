@@ -533,7 +533,14 @@
 				try {
 					// Start trip using TripManager if available
 					if (window.TripManager) {
-						const tripId = await window.TripManager.startTrip(busId, selectedRoute.routeId);
+						// Get driver ID from localStorage
+						let driverId = null;
+						try {
+							driverId = localStorage.getItem("vtrack_driver_uid");
+						} catch (e) {
+							console.warn("Failed to get driver ID from localStorage:", e);
+						}
+						const tripId = await window.TripManager.startTrip(busId, selectedRoute.routeId, driverId);
 						
 						// Alert route selection in Firebase
 						const now = Date.now();

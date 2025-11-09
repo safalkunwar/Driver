@@ -539,20 +539,15 @@ body {
     padding: 8px 16px;
 }
 
-/* Bottom Navigation */
+/* --- Bottom Nav --- */
 .bottom-nav {
-    display: flex;
-    justify-content: space-around;
-    background: #1f2937;
-    padding: 8px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 100;
+  display: flex;
+  justify-content: space-around;
+  background: rgba(30, 41, 59, 0.8);
+  padding: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  animation: slideUp 1s ease;
 }
-
 .nav-btn {
     background: transparent;
     border: none;
