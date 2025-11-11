@@ -4,7 +4,7 @@
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<title>V-Track | Driver Login</title>
-	<link rel="stylesheet" href="driver.css" />
+	<link rel="stylesheet" href="../driver.css" />
 	<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 	<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 	<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -18,6 +18,42 @@
 			<input id="password" type="password" placeholder="Password" style="padding:12px;border-radius:8px;border:1px solid #333;background:#151515;color:#fff;" />
 			<button id="loginBtn" style="padding:12px;border:none;border-radius:8px;background:#4CAF50;color:#fff;cursor:pointer;">Login</button>
 			<div id="loginMsg" style="min-height:18px;color:#f66;"></div>
+			<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:14px;">
+				<a href="#" id="forgotPwLink" style="color:#4CAF50;text-decoration:underline;opacity:0.8;">Forgot password?</a>
+				<a href="#" id="signupLink" style="color:#89CFF0;text-decoration:underline;opacity:0.8;">Sign up</a>
+			</div>
+		</div>
+	</div>
+
+	<!-- Forgot Password Modal -->
+	<div id="forgotPwModal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
+		<div style="background:#212121;padding:24px 28px;border-radius:10px;max-width:340px;margin:auto;color:#fff;">
+			<h3 style="margin-top:0">Reset Password</h3>
+			<p style="font-size:14px;opacity:0.8;margin-bottom:14px;">Enter your email address to reset your password.</p>
+			<input id="forgotPwEmail" type="email" placeholder="Email" style="padding:10px;width:100%;margin-bottom:10px;border-radius:7px;border:1px solid #333;background:#151515;color:#fff;">
+			<div id="forgotPwMsg" style="min-height:18px;color:#69f;margin-bottom:10px;"></div>
+			<div style="display:flex;gap:12px;justify-content:flex-end;">
+				<button id="forgotPwSendBtn" style="padding:8px 16px;border-radius:6px;border:none;background:#4CAF50;color:#fff;cursor:pointer;">Send Reset Link</button>
+				<button id="forgotPwCancelBtn" style="padding:8px 16px;border-radius:6px;border:none;background:#444;color:#fff;cursor:pointer;">Cancel</button>
+			</div>
+		</div>
+	</div>
+	<!-- Signup Modal -->
+	<div id="signupModal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
+		<div style="background:#212121;padding:24px 28px;border-radius:10px;max-width:340px;margin:auto;color:#fff;">
+			<h3 style="margin-top:0">Driver Sign Up</h3>
+			<form id="signupForm">
+				<input id="signupName" type="text" placeholder="Full Name" style="margin-bottom:10px;padding:10px;width:100%;border-radius:7px;border:1px solid #333;background:#151515;color:#fff;">
+				<input id="signupLicense" type="text" placeholder="License Number" style="margin-bottom:10px;padding:10px;width:100%;border-radius:7px;border:1px solid #333;background:#151515;color:#fff;">
+				<input id="signupPhone" type="tel" placeholder="Phone Number" style="margin-bottom:10px;padding:10px;width:100%;border-radius:7px;border:1px solid #333;background:#151515;color:#fff;">
+				<input id="signupEmail" type="email" placeholder="Email" style="margin-bottom:10px;padding:10px;width:100%;border-radius:7px;border:1px solid #333;background:#151515;color:#fff;">
+				<input id="signupPassword" type="password" placeholder="Password" style="margin-bottom:14px;padding:10px;width:100%;border-radius:7px;border:1px solid #333;background:#151515;color:#fff;">
+				<div id="signupMsg" style="min-height:18px;color:#69f;margin-bottom:10px;min-height:22px"></div>
+				<div style="display:flex;gap:12px;justify-content:flex-end;">
+					<button type="submit" style="padding:8px 16px;border-radius:6px;border:none;background:#4CAF50;color:#fff;cursor:pointer;">Request Signup</button>
+					<button id="signupCancelBtn" type="button" style="padding:8px 16px;border-radius:6px;border:none;background:#444;color:#fff;cursor:pointer;">Cancel</button>
+				</div>
+			</form>
 		</div>
 	</div>
 
@@ -36,6 +72,7 @@
 		const auth = firebase.auth();
 		const db = firebase.database();
 
+		// Login logic - backward compatibility for accounts without status:
 		document.getElementById('loginBtn').addEventListener('click', async () => {
 			const email = document.getElementById('email').value.trim();
 			const password = document.getElementById('password').value.trim();
@@ -44,18 +81,107 @@
 			try {
 				const cred = await auth.signInWithEmailAndPassword(email, password);
 				const uid = cred.user.uid;
+				// Check driverInfo
+				const approvedSnap = await db.ref('driverInfo/' + uid).once('value');
+				const approvedData = approvedSnap.val();
+				// Allow login if status is 'active' OR status is missing/undefined (legacy)
+				if (!approvedData || (approvedData.status && approvedData.status !== 'active')) {
+					// Check pending
+					const pendingSnap = await db.ref('pendingDrivers/' + uid).once('value');
+					if (pendingSnap.exists()) {
+						msg.textContent = 'Your account is pending admin approval.';
+					} else {
+						msg.textContent = 'Account not approved or does not exist.';
+					}
+					await auth.signOut();
+					return;
+				}
+				// Continue as before:
 				try { localStorage.setItem('vtrack_driver_uid', uid); } catch(e) {}
-				// Fetch assigned bus/route
-				const snap = await db.ref(`driverInfo/${uid}`).once('value');
-				const d = snap.val() || {};
-				if (d.assignedBusId) try { localStorage.setItem('v-track-driver-busId', d.assignedBusId); } catch(e) {}
+				if (approvedData.assignedBusId) try { localStorage.setItem('v-track-driver-busId', approvedData.assignedBusId); } catch(e) {}
 				window.location.href = 'driver-profile.html';
 			} catch (e) {
 				msg.textContent = e.message || 'Login failed';
 			}
 		});
+
+		// Modal logic
+		const forgotPwLink = document.getElementById('forgotPwLink');
+		const forgotPwModal = document.getElementById('forgotPwModal');
+		const forgotPwCancelBtn = document.getElementById('forgotPwCancelBtn');
+		forgotPwLink.onclick = e => { e.preventDefault(); forgotPwModal.style.display = 'flex'; document.getElementById('forgotPwMsg').textContent = ''; }
+		forgotPwCancelBtn.onclick = () => { forgotPwModal.style.display = 'none'; }
+		// Background click to close
+		forgotPwModal.onclick = e => { if (e.target === forgotPwModal) forgotPwModal.style.display = 'none'; }
+		// Auto-trigger if URL hash is #forgot
+		if (window.location.hash === '#forgot') {
+			setTimeout(()=>{
+				forgotPwModal.style.display = 'flex';
+				document.getElementById('forgotPwMsg').textContent = '';
+			}, 150);
+		}
+
+		// Forgot password send
+		document.getElementById('forgotPwSendBtn').onclick = async () => {
+			const email = document.getElementById('forgotPwEmail').value.trim();
+			const msg = document.getElementById('forgotPwMsg');
+			msg.style.color = '#69f';
+			msg.textContent = '';
+			if (!email) { msg.textContent = 'Enter your email!'; msg.style.color = '#f66'; return; }
+			try {
+				await auth.sendPasswordResetEmail(email);
+				msg.textContent = 'Reset link sent! Check your email.';
+				msg.style.color = '#4CAF50';
+			} catch(e) {
+				msg.textContent = e.message || 'Reset failed.'; msg.style.color = '#f66';
+			}
+		}
+
+		// Signup modal logic
+		const signupLink = document.getElementById('signupLink');
+		const signupModal = document.getElementById('signupModal');
+		const signupCancelBtn = document.getElementById('signupCancelBtn');
+		signupLink.onclick = e => { e.preventDefault(); signupModal.style.display = 'flex'; document.getElementById('signupMsg').textContent = ''; }
+		signupCancelBtn.onclick = () => { signupModal.style.display = 'none'; }
+		signupModal.onclick = e => { if (e.target === signupModal) signupModal.style.display = 'none'; }
+
+		// Signup form preparation (do not submit, just block empty fields for now)
+		document.getElementById('signupForm').onsubmit = async e => {
+			e.preventDefault();
+			const name = document.getElementById('signupName').value.trim();
+			const license = document.getElementById('signupLicense').value.trim();
+			const phone = document.getElementById('signupPhone').value.trim();
+			const email = document.getElementById('signupEmail').value.trim();
+			const password = document.getElementById('signupPassword').value;
+			const signupMsg = document.getElementById('signupMsg');
+			signupMsg.textContent = '';
+			if (!name || !license || !phone || !email || !password) {
+				signupMsg.textContent = 'Fill in all fields!';
+				signupMsg.style.color = '#f66';
+				return;
+			}
+			signupMsg.textContent = 'Creating account...';
+			signupMsg.style.color = '#69f';
+			try {
+				const cred = await auth.createUserWithEmailAndPassword(email, password);
+				const uid = cred.user.uid;
+				// Add driver as pending
+				await db.ref('pendingDrivers/' + uid).set({
+					name,
+					email,
+					licenseNumber: license,
+					phone,
+					status: 'pending',
+					timestamp: Date.now()
+				});
+				signupMsg.textContent = 'Registration submitted for approval! Please wait for admin approval.';
+				signupMsg.style.color = '#4CAF50';
+				setTimeout(()=>{ signupModal.style.display = 'none'; }, 2200);
+			} catch(e) {
+				signupMsg.textContent = e.message || 'Sign up failed.';
+				signupMsg.style.color = '#f66';
+			}
+		}
 	</script>
 </body>
 </html>
-
-

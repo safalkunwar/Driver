@@ -22,10 +22,10 @@
 
   const CONFIG = {
     // Update intervals
-    MOVING_INTERVAL: 3000, // 3s when moving
-    SLOW_INTERVAL: 6000, // 6s when moving slowly
-    IDLE_INTERVAL: 15000, // 15s when idle
-    BACKGROUND_INTERVAL: 30000, // 30s when app in background
+    MOVING_INTERVAL: 1000, // 1.5s when moving
+    SLOW_INTERVAL: 2000, // 3s when moving slowly
+    IDLE_INTERVAL: 5000, // 10s when idle
+    BACKGROUND_INTERVAL: 9000, // 20s when app in background
 
     // Movement thresholds
     MIN_DISTANCE_METERS: 5, // Minimum movement to record
@@ -38,12 +38,12 @@
     MAX_JUMP_METERS: 500, // Max distance between consecutive points
 
     // Heartbeat
-    HEARTBEAT_INTERVAL: 30000, // Update timestamp every 30s when idle
+    HEARTBEAT_INTERVAL: 3000, // Update timestamp every 30s when idle
 
     // Geolocation options
     GEO_OPTIONS: {
       enableHighAccuracy: true,
-      timeout: 15000,
+      timeout: 10000,
       maximumAge: 0,
     },
   };
@@ -253,23 +253,96 @@
   // FIREBASE OPERATIONS
   // ============================================================
 
+  // Track last written location to detect duplicates
+  let lastWrittenLocation = null;
+  let lastWrittenTimestamp = null;
+
+  /**
+   * Check if location is the same as last written (within threshold)
+   */
+  function isSameLocation(lat1, lon1, lat2, lon2) {
+    if (!lat2 || !lon2) return false;
+    const distance = haversineDistance(lat1, lon1, lat2, lon2);
+    return distance < CONFIG.MIN_DISTANCE_METERS; // Same location if within 5 meters
+  }
+
   /**
    * Write location to Firebase under BusLocation/{busId}/{timestamp}
+   * Smart storage: if bus is at same location, update timestamp instead of creating duplicate
    */
-  function writeLocationToFirebase(busId, timestamp, data) {
+  async function writeLocationToFirebase(busId, timestamp, data) {
     if (!window.firebase || !window.firebase.database) {
       console.error("[SmartTracker] Firebase not available");
       return Promise.reject(new Error("Firebase unavailable"));
     }
 
     const db = window.firebase.database();
-    // Write ONLY latitude and longitude at timestamp level (as per user requirement)
     const locationData = {
       latitude: data.latitude,
       longitude: data.longitude,
     };
 
-    return db.ref(`BusLocation/${busId}/${timestamp}`).set(locationData);
+    // Check if bus is at the same location as last written
+    if (
+      lastWrittenLocation &&
+      isSameLocation(
+        data.latitude,
+        data.longitude,
+        lastWrittenLocation.latitude,
+        lastWrittenLocation.longitude,
+      ) &&
+      lastWrittenTimestamp
+    ) {
+      // Bus is stationary. Update the timestamp by removing the old entry and creating a new one.
+      const oldTimestamp = lastWrittenTimestamp;
+      const newTimestamp = timestamp;
+
+      // Update internal state first to prevent race conditions
+      lastWrittenTimestamp = newTimestamp;
+
+      const oldRef = db.ref(`BusLocation/${busId}/${oldTimestamp}`);
+      const newRef = db.ref(`BusLocation/${busId}/${newTimestamp}`);
+
+      try {
+        await oldRef.remove();
+        await newRef.set(locationData);
+        console.log(
+          `[SmartTracker] Timestamp updated for stationary location: ${newTimestamp}`,
+        );
+      } catch (error) {
+        console.error("[SmartTracker] Failed to update timestamp:", error);
+        // If it fails, the next moving update will fix the chain.
+        throw error;
+      }
+    } else {
+      // Bus has moved or this is the first update. Create a new location entry.
+      try {
+        await db.ref(`BusLocation/${busId}/${timestamp}`).set(locationData);
+        // Update tracking state
+        lastWrittenLocation = {
+          latitude: data.latitude,
+          longitude: data.longitude,
+        };
+        lastWrittenTimestamp = timestamp;
+        state.stats.totalUpdates++;
+        console.log(
+          `[SmartTracker] New location recorded: ${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}`,
+        );
+      } catch (error) {
+        console.warn(
+          "[SmartTracker] Firebase write failed, queuing for offline sync...",
+        );
+        if (window.OfflineManager) {
+          OfflineManager.queueUpdate(
+            busId,
+            timestamp,
+            locationData,
+            "location",
+          );
+        }
+        throw error;
+      }
+    }
   }
 
   /**
@@ -328,113 +401,42 @@
     const now = Date.now();
     const coords = position.coords;
 
-    // Update last GPS reading
-    state.lastGpsReading = {
+    const locationData = {
       latitude: coords.latitude,
       longitude: coords.longitude,
       accuracy: coords.accuracy,
       altitude: coords.altitude,
       speed: coords.speed,
       heading: coords.heading,
-      timestamp: coords.timestamp || now,
-    };
-    state.lastGpsTime = now;
-
-    // Calculate speed in km/h
-    let speedKmh = 0;
-    if (coords.speed && coords.speed >= 0) {
-      speedKmh = Math.round(coords.speed * 3.6);
-    } else if (state.lastRecordedPosition) {
-      // Estimate speed from distance/time
-      const distance = haversineDistance(
-        state.lastRecordedPosition.latitude,
-        state.lastRecordedPosition.longitude,
-        coords.latitude,
-        coords.longitude,
-      );
-      const timeDiff = (now - state.lastRecordedTime) / 1000;
-      if (timeDiff > 0) {
-        speedKmh = Math.round((distance / timeDiff) * 3.6);
-      }
-    }
-
-    // Calculate heading if not provided
-    let heading = coords.heading;
-    if (!heading && state.lastRecordedPosition) {
-      heading = calculateBearing(
-        state.lastRecordedPosition.latitude,
-        state.lastRecordedPosition.longitude,
-        coords.latitude,
-        coords.longitude,
-      );
-    }
-
-    // Update movement state
-    state.currentSpeed = speedKmh;
-    state.isIdle = speedKmh < CONFIG.IDLE_SPEED_THRESHOLD;
-    state.isMoving = speedKmh >= CONFIG.SLOW_SPEED_THRESHOLD;
-
-    // Create location data object
-    const locationData = {
-      latitude: coords.latitude,
-      longitude: coords.longitude,
-      speed: speedKmh,
-      heading: Math.round(heading || 0),
-      accuracy: coords.accuracy,
-      altitude: coords.altitude,
       ts: now,
     };
 
-    // Check if enough time has passed since last update
-    const adaptiveInterval = getAdaptiveInterval();
-    const timeSinceLastUpdate = now - state.lastRecordedTime;
-
-    if (timeSinceLastUpdate < adaptiveInterval) {
-      // Too soon - skip this update
-      return;
-    }
-
-    // Filter GPS point
-    const filteredPoint = filterGpsPoint(
-      locationData,
-      state.lastRecordedPosition,
+    // Determine if the bus has moved significantly
+    const hasMoved = !isSameLocation(
+      locationData.latitude,
+      locationData.longitude,
+      lastWrittenLocation ? lastWrittenLocation.latitude : null,
+      lastWrittenLocation ? lastWrittenLocation.longitude : null,
     );
 
-    if (!filteredPoint) {
-      // Point was filtered out (not enough movement)
-      // Send heartbeat if it's been a while
-      const timeSinceHeartbeat = now - state.lastHeartbeatTime;
-      if (timeSinceHeartbeat >= CONFIG.HEARTBEAT_INTERVAL) {
-        sendHeartbeat(state.busId);
-      }
-      return;
-    }
-
-    // Point passed filters - write to Firebase
-    const timestamp = now;
-
-    writeLocationToFirebase(state.busId, timestamp, filteredPoint)
+    // If the bus hasn't moved, we still want to update the timestamp to show it's online.
+    // If it has moved, we write the new location.
+    writeLocationToFirebase(state.busId, now, locationData)
       .then(() => {
-        console.log(
-          `[SmartTracker] Location recorded: ${filteredPoint.latitude.toFixed(6)}, ${filteredPoint.longitude.toFixed(6)} | Speed: ${filteredPoint.speed} km/h`,
-        );
-
-        // Update state
+        // Update state that tracks the last recorded position for filtering and distance calculation
         state.lastRecordedPosition = {
-          latitude: filteredPoint.latitude,
-          longitude: filteredPoint.longitude,
-          ts: timestamp,
+          latitude: locationData.latitude,
+          longitude: locationData.longitude,
+          ts: now,
         };
-        state.lastRecordedTime = timestamp;
-        state.stats.totalUpdates++;
+        state.lastRecordedTime = now;
 
-        // Also update current location for real-time tracking
-        return updateCurrentLocation(state.busId, filteredPoint);
+        // Also update the separate, real-time UI tracking location
+        return updateCurrentLocation(state.busId, locationData);
       })
       .then(() => {
-        // Trigger callback if set
         if (state.onLocationUpdate) {
-          state.onLocationUpdate(filteredPoint);
+          state.onLocationUpdate(locationData);
         }
       })
       .catch((err) => {
@@ -445,7 +447,6 @@
         }
       });
   }
-
   /**
    * Handle geolocation errors
    */
@@ -541,6 +542,10 @@
       }
 
       state.isTracking = false;
+
+      // Reset location tracking
+      lastWrittenLocation = null;
+      lastWrittenTimestamp = null;
 
       console.log("[SmartTracker] Stopped tracking");
       console.log(

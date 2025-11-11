@@ -11,176 +11,367 @@
         />
         <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
         <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     </head>
     <body>
         <div class="driver-app">
             <!-- Header -->
             <header class="driver-header">
-                <div class="header-left">
-                    <h1>V-Track</h1>
-                    <p class="subtitle">Driver Dashboard</p>
-                </div>
                 <div class="header-right">
-                    <div class="status online">🟢 Connected</div>
-                    <span id="busLabel">Bus: —</span>
-                    <span
-                        id="busCounter"
-                        style="
-                            margin-left: 15px;
-                            color: #22c55e;
-                            font-weight: 600;
-                        "
+                    <div
+                        id="busSelectorContainer"
+                        style="display: inline-block; margin-left: 15px"
                     >
-                        🚌 <span id="onlineBusCount">0</span> buses online
-                    </span>
+                        <select
+                            id="busSelectDropdown"
+                            style="
+                                padding: 6px 12px;
+                                border: 2px solid #3b82f6;
+                                border-radius: 6px;
+                                background: white;
+                                color: #1f2937;
+                                font-weight: 500;
+                                cursor: pointer;
+                                font-size: 14px;
+                            "
+                        >
+                            <option value="">Select Bus</option>
+                        </select>
+                    </div>
                 </div>
             </header>
 
             <!-- Map Section -->
-            <section class="map-area">
-                <div class="map-placeholder">
+            <section class="map-area" id="mapArea">
+                <div
+                    id="map"
+                    class="map-placeholder"
+                    style="width: 100%; height: 100%"
+                >
                     <p>🗺️ Map Loading...</p>
                 </div>
-
-                <!-- On-map Info Bar -->
-                <div class="map-overlay">
-                    <div class="map-info">
-                        <span>Route: Pokhara → Suklaphanta</span>
-                        <span>ETA: 15 mins</span>
-                    </div>
-                </div>
             </section>
 
-            <!-- Driver Controls -->
-            <section class="driver-controls">
-                <button class="control primary">Start</button>
-                <button class="control stop">Stop</button>
-                <button class="control route">Route</button>
-                <button class="control alert">Alerts</button>
-                <button class="control focus" id="focusBtn">Focus Mode</button>
-                <button
-                    class="control"
-                    id="toggleAllBusesBtn"
-                    style="background: #10b981"
-                >
-                    🗺️ Show All Buses
+            <!-- Trip Controls (Minimal) -->
+            <section class="route-actions">
+                <button class="control primary" id="startTripBtn">
+                    ▶ Start Trip
                 </button>
+                <button class="control stop" id="endTripBtn" disabled>
+                    ⏹ End Trip
+                </button>
+                <button class="control" id="pauseTripBtn" disabled>
+                    ⏸ Pause
+                </button>
+                <button class="nav-btn" id="navFocusBtn">🚗 Focus</button>
             </section>
+            <!-- Emergency Button (Fixed Position) -->
+            <button
+                id="emergencyBtn"
+                style="
+                    position: fixed;
+                    bottom: 328px;
+                    right: 36px;
+                    width: 60px;
+                    height: 60px;
+                    background: linear-gradient(135deg, #ef4444, #dc2626);
+                    color: white;
+                    border: none;
+                    border-radius: 50%;
+                    font-size: 2rem;
+                    cursor: pointer;
+                    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.5);
+                    z-index: 9999;
+                    animation: pulse-emergency 2s infinite;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                "
+            >
+                🚨
+            </button>
 
-            <!-- Driver Assist Info -->
-            <section class="driver-panel">
-                <h3>🎯 Driver Assist</h3>
-                <div class="assist-info">
-                    <div class="assist-item">
-                        <span>Next Stop:</span>
-                        <strong>Shree Public School</strong>
-                    </div>
-                    <div class="assist-item">
-                        <span>Students Ahead:</span>
-                        <strong>5</strong>
-                    </div>
-                    <div class="assist-item">
-                        <span>Traffic Status:</span>
-                        <strong>Clear</strong>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Notices -->
-            <section class="notice-section">
-                <h3>📢 Notices & Alerts</h3>
-                <div class="notice-list">
-                    <div class="notice info">
-                        <p>All systems normal.</p>
-                        <span>Now</span>
-                    </div>
-                    <div class="notice warning">
-                        <p>Student pickup ahead (300m).</p>
-                        <span>2 mins ago</span>
-                    </div>
-                </div>
-            </section>
+            <style>
+                @keyframes pulse-emergency {
+                    0%,
+                    100% {
+                        transform: scale(1);
+                        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.5);
+                    }
+                    50% {
+                        transform: scale(1.05);
+                        box-shadow: 0 8px 20px rgba(239, 68, 68, 0.8);
+                    }
+                }
+            </style>
 
             <!-- Focus Mode -->
-            <section class="focus-mode" id="focusMode">
-                <div class="focus-topbar">
-                    <button class="exit-focus" id="exitFocus">✖</button>
-                    <h2>🚗 Focus Mode</h2>
+            <section
+                class="focus-mode"
+                id="focusMode"
+                style="
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: #0f172a;
+                    z-index: 10000;
+                    display: none;
+                    flex-direction: column;
+                    color: white;
+                "
+            >
+                <div
+                    class="focus-topbar"
+                    style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 15px 20px;
+                        background: rgba(15, 23, 42, 0.9);
+                        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                    "
+                >
+                    <div>
+                        <h2 style="margin: 0; font-size: 20px">
+                            🚗 Focus Mode
+                        </h2>
+                        <div
+                            id="focusBusInfo"
+                            style="
+                                font-size: 12px;
+                                opacity: 0.7;
+                                margin-top: 4px;
+                            "
+                        >
+                            Bus: —
+                        </div>
+                    </div>
+                    <button
+                        class="exit-focus"
+                        id="exitFocus"
+                        style="
+                            background: rgba(239, 68, 68, 0.2);
+                            border: 2px solid rgba(239, 68, 68, 0.5);
+                            color: white;
+                            width: 40px;
+                            height: 40px;
+                            border-radius: 50%;
+                            font-size: 20px;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        "
+                    >
+                        ✖
+                    </button>
                 </div>
 
-                <!-- Expanded Map Area -->
-                <div class="focus-map">
-                    <div class="map-placeholder big">
-                        <p>🗺️ Focus Map View</p>
-                    </div>
+                <!-- Expanded Map Area (Priority - Larger) -->
+                <div
+                    class="focus-map"
+                    id="focusMapContainer"
+                    style="
+                        flex: 1;
+                        position: relative;
+                        width: 100%;
+                        height: calc(100vh - 120px);
+                    "
+                >
+                    <div id="focusMap" style="width: 100%; height: 100%"></div>
                 </div>
 
-                <!-- Focus Details -->
-                <div class="focus-details">
-                    <div class="focus-card">
-                        <h4>Next Stop</h4>
-                        <p>Shree Public School</p>
+                <!-- Focus Details & Route Actions (Smaller) -->
+                <div
+                    class="focus-bottom"
+                    style="
+                        padding: 8px 12px;
+                        background: rgba(15, 23, 42, 0.95);
+                        border-top: 1px solid rgba(255, 255, 255, 0.1);
+                        display: flex;
+                        gap: 8px;
+                        align-items: center;
+                        flex-wrap: wrap;
+                        justify-content: space-between;
+                    "
+                >
+                    <!-- Route Info (Smaller) -->
+                    <div
+                        class="focus-route-info"
+                        style="
+                            display: flex;
+                            gap: 10px;
+                            flex-wrap: wrap;
+                            flex: 1;
+                        "
+                    >
+                        <div
+                            style="
+                                background: rgba(59, 130, 246, 0.2);
+                                padding: 6px 10px;
+                                border-radius: 6px;
+                                border-left: 2px solid #3b82f6;
+                            "
+                        >
+                            <div
+                                style="
+                                    font-size: 9px;
+                                    opacity: 0.7;
+                                    margin-bottom: 2px;
+                                "
+                            >
+                                Next Stop
+                            </div>
+                            <div
+                                id="focusNextStop"
+                                style="font-weight: 600; font-size: 11px"
+                            >
+                                —
+                            </div>
+                        </div>
+                        <div
+                            style="
+                                background: rgba(34, 197, 94, 0.2);
+                                padding: 6px 10px;
+                                border-radius: 6px;
+                                border-left: 2px solid #22c55e;
+                            "
+                        >
+                            <div
+                                style="
+                                    font-size: 9px;
+                                    opacity: 0.7;
+                                    margin-bottom: 2px;
+                                "
+                            >
+                                Students
+                            </div>
+                            <div
+                                id="focusStudentsAhead"
+                                style="font-weight: 600; font-size: 11px"
+                            >
+                                0
+                            </div>
+                        </div>
+                        <div
+                            style="
+                                background: rgba(245, 158, 11, 0.2);
+                                padding: 6px 10px;
+                                border-radius: 6px;
+                                border-left: 2px solid #f59e0b;
+                            "
+                        >
+                            <div
+                                style="
+                                    font-size: 9px;
+                                    opacity: 0.7;
+                                    margin-bottom: 2px;
+                                "
+                            >
+                                Speed
+                            </div>
+                            <div
+                                id="focusSpeed"
+                                style="font-weight: 600; font-size: 11px"
+                            >
+                                0 km/h
+                            </div>
+                        </div>
                     </div>
-                    <div class="focus-card">
-                        <h4>Students Ahead</h4>
-                        <p>5 Students (800m ahead)</p>
-                    </div>
-                    <div class="focus-card alert">
-                        <h4>Active Alert</h4>
-                        <p>🚸 Student pickup in 200m — Slow down</p>
-                    </div>
-                </div>
 
-                <!-- Quick Settings -->
-                <div class="focus-utils">
-                    <button class="util-btn">🌙 Night Mode</button>
-                    <button class="util-btn">🧭 Navigation Hints</button>
-                    <button class="util-btn">🛠 Settings</button>
+                    <!-- Route Actions (Smaller) -->
+                    <div
+                        class="focus-route-actions"
+                        style="display: flex; gap: 6px"
+                    >
+                        <button
+                            id="focusRouteBtn"
+                            style="
+                                padding: 6px 12px;
+                                background: #3b82f6;
+                                color: white;
+                                border: none;
+                                border-radius: 6px;
+                                font-weight: 500;
+                                cursor: pointer;
+                                font-size: 11px;
+                            "
+                        >
+                            📍 Route
+                        </button>
+                        <button
+                            id="focusShowBusesBtn"
+                            style="
+                                padding: 6px 12px;
+                                background: #10b981;
+                                color: white;
+                                border: none;
+                                border-radius: 6px;
+                                font-weight: 500;
+                                cursor: pointer;
+                                font-size: 11px;
+                            "
+                        >
+                            🗺️ Buses
+                        </button>
+                    </div>
                 </div>
             </section>
 
             <!-- Bottom Nav -->
             <nav class="bottom-nav">
-                <button class="nav-btn active">Map</button>
-                <button class="nav-btn">Route</button>
-                <button class="nav-btn">Students</button>
-                <button class="nav-btn">Alerts</button>
-                <button class="nav-btn">Profile</button>
+                <button class="nav-btn active">🗺️ Map</button>
+                <button class="nav-btn" id="navRouteBtn">📍 Route</button>
+                <button class="nav-btn">👥 Students</button>
+
+                <button class="nav-btn">📊 History</button>
+                <button class="nav-btn">👤 Profile</button>
             </nav>
-        </div>
-        <div
-            id="connectionIndicator"
-            style="
-                display: none;
-                background: #2b2b2b;
-                color: white;
-                padding: 8px;
-                border-radius: 6px;
-                margin: 10px;
-            "
-        >
-            Connected Bus: <span id="connectedBusId">N/A</span>
         </div>
 
         <script>
             const navButtons = document.querySelectorAll(".nav-btn");
 
             const pages = {
-                map: "driver.html",
-                route: "driver-route.html",
-                students: "driver-students.html",
-                alerts: "driver-others.html",
-                profile: "driver-profile.html",
+                "🗺️ map": "driver.html",
+                "📍 route": "driver-route.html",
+                "👥 students": "driver-students.html",
+                "📊 history": "driver-trip-history.html",
+                "👤 profile": "driver-profile.html",
             };
 
             navButtons.forEach((btn) => {
-                btn.addEventListener("click", () => {
+                btn.addEventListener("click", (e) => {
+                    // Skip if it's the focus button (handled separately)
+                    if (btn.id === "navFocusBtn") {
+                        return;
+                    }
+
                     const target = btn.textContent.trim().toLowerCase();
-                    const destination = pages[target];
+                    let destination = null;
+
+                    // Match by emoji + text
+                    for (const [key, value] of Object.entries(pages)) {
+                        if (target.includes(key.toLowerCase().split(" ")[1])) {
+                            destination = value;
+                            break;
+                        }
+                    }
+
                     if (destination) {
                         // Highlight active tab
-                        navButtons.forEach((b) => b.classList.remove("active"));
+                        navButtons.forEach((b) => {
+                            if (b.id !== "navFocusBtn") {
+                                b.classList.remove("active");
+                                b.style.color = "#6b7280";
+                                b.style.fontWeight = "500";
+                            }
+                        });
                         btn.classList.add("active");
+                        btn.style.color = "#3b82f6";
+                        btn.style.fontWeight = "600";
 
                         // Redirect (with smooth transition)
                         document.body.classList.add("fade-out");
@@ -192,6 +383,14 @@
                     }
                 });
             });
+
+            // Route button in nav
+            const navRouteBtn = document.getElementById("navRouteBtn");
+            if (navRouteBtn) {
+                navRouteBtn.addEventListener("click", () => {
+                    window.location.href = "driver-route.html";
+                });
+            }
         </script>
 
         <style>
@@ -199,9 +398,151 @@
                 opacity: 0;
                 transition: opacity 0.3s ease;
             }
+
+            @keyframes slideDown {
+                from {
+                    transform: translateX(-50%) translateY(-100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(-50%) translateY(0);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes slideUp {
+                from {
+                    transform: translateX(-50%) translateY(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(-50%) translateY(-100%);
+                    opacity: 0;
+                }
+            }
+
+            @keyframes pulse {
+                0%,
+                100% {
+                    transform: scale(1);
+                    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+                }
+                50% {
+                    transform: scale(1.05);
+                    box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+                }
+            }
+
+            .control.primary.active {
+                animation: pulse 2s infinite;
+            }
+
+            /* Responsive bottom nav */
+            @media (max-width: 480px) {
+                .bottom-nav {
+                    font-size: 10px !important;
+                    padding: 6px 0 !important;
+                }
+                .bottom-nav .nav-btn {
+                    padding: 8px 4px !important;
+                    font-size: 10px !important;
+                }
+            }
+
+            @media (max-width: 360px) {
+                .bottom-nav {
+                    font-size: 9px !important;
+                }
+                .bottom-nav .nav-btn {
+                    padding: 6px 2px !important;
+                    font-size: 9px !important;
+                }
+            }
+
+            /* Ensure all nav buttons are visible */
+            .bottom-nav {
+                
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+            }
+            .bottom-nav::-webkit-scrollbar {
+                display: none;
+            }
+
+            /* Focus mode responsive */
+            @media (max-width: 768px) {
+                .focus-bottom {
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                }
+                .focus-route-info {
+                    flex-direction: column !important;
+                    gap: 10px !important;
+                }
+                .focus-route-actions {
+                    width: 100% !important;
+                    flex-direction: column !important;
+                }
+                .focus-route-actions button {
+                    width: 100% !important;
+                }
+            }
+
+            /* Map area padding for bottom nav */
+            .map-area {
+                margin-bottom: 70px;
+            }
+
+            /* Trip controls - matching driver-route.css */
+            .trip-controls-minimal {
+                display: flex;
+                justify-content: space-around;
+                background: #111827;
+                padding: 8px 6px;
+                gap: 6px;
+            }
+            .trip-controls-minimal button {
+                padding: 10px 14px;
+                border: none;
+                border-radius: 10px;
+                background: var(--accent, #3b82f6);
+                color: white;
+                font-weight: 500;
+                cursor: pointer;
+                flex: 1;
+                font-size: 13px;
+            }
+            .trip-controls-minimal button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+            .trip-controls-minimal .control.stop {
+                background: var(--danger, #ef4444);
+            }
+            .trip-controls-minimal .control:not(.primary):not(.stop) {
+                background: #f59e0b;
+            }
+
+            /* Bottom nav - matching driver-route.css */
+
+            /* Trip controls responsive */
+            @media (max-width: 480px) {
+                .trip-controls-minimal {
+                    padding: 6px 4px !important;
+                    gap: 4px !important;
+                }
+                .trip-controls-minimal button {
+                    padding: 8px 10px !important;
+                    font-size: 11px !important;
+                }
+                .bottom-nav .nav-btn {
+                    padding: 8px 4px !important;
+                    font-size: 10px !important;
+                }
+            }
         </style>
 
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <script src="../js/firebase.js"></script>
         <script src="../js/utils.js"></script>
         <script src="../js/map.js"></script>
@@ -212,56 +553,1010 @@
         <script src="../js/tracker-integration.js"></script>
         <script src="../js/tracker-monitor.js"></script>
         <script src="../js/multi-bus-map.js"></script>
+        <script src="../js/trip-manager.js"></script>
+        <script src="../js/offline-manager.js"></script>
         <script src="../js/driver.js"></script>
 
-        <!-- Initialize Monitor (Optional - for debugging) -->
+        <!-- Initialize All Systems -->
         <script>
-            // Multi-Bus Map Toggle
-            let showingAllBuses = false;
-            const toggleBtn = document.getElementById("toggleAllBusesBtn");
+            // ============================================================
+            // BUS SELECTION
+            // ============================================================
 
-            if (toggleBtn) {
-                toggleBtn.addEventListener("click", () => {
-                    showingAllBuses = !showingAllBuses;
+            /**
+             * Load available buses from Firebase
+             */
+            async function loadAvailableBuses() {
+                try {
+                    const db = firebase.database();
+                    const busesSnapshot = await db
+                        .ref("busDetails")
+                        .once("value");
+                    const buses = busesSnapshot.val() || {};
 
-                    if (showingAllBuses) {
-                        // Initialize multi-bus map
-                        const map =
-                            window.map ||
-                            (window.VTMapAPI &&
-                                window.VTMapAPI._state &&
-                                window.VTMapAPI._state.map);
-                        const busId =
-                            window.currentBusId ||
-                            localStorage.getItem("v-track-driver-busId");
+                    const dropdown =
+                        document.getElementById("busSelectDropdown");
+                    if (!dropdown) return;
 
-                        if (map && busId && window.MultiBusMap) {
-                            MultiBusMap.initialize(map, busId);
-                            toggleBtn.textContent = "🗺️ Hide Other Buses";
-                            toggleBtn.style.background = "#ef4444";
+                    // Clear existing options except "Select Bus"
+                    dropdown.innerHTML = '<option value="">Select Bus</option>';
 
-                            // Update bus counter periodically
-                            setInterval(() => {
-                                if (MultiBusMap.isEnabled()) {
-                                    const count = MultiBusMap.getOnlineCount();
-                                    document.getElementById(
-                                        "onlineBusCount",
-                                    ).textContent = count;
-                                }
-                            }, 5000);
+                    // Add buses to dropdown
+                    Object.entries(buses).forEach(([busId, busData]) => {
+                        const option = document.createElement("option");
+                        option.value = busId;
+                        option.textContent = busData.busName || busId;
+                        dropdown.appendChild(option);
+                    });
+
+                    // Set current bus if already selected
+                    const currentBusId = localStorage.getItem(
+                        "v-track-driver-busId",
+                    );
+                    if (currentBusId) {
+                        dropdown.value = currentBusId;
+                    }
+
+                    console.log(`✅ Loaded ${Object.keys(buses).length} buses`);
+                } catch (error) {
+                    console.error("Error loading buses:", error);
+                }
+            }
+
+            /**
+             * Handle bus selection
+             */
+            function handleBusSelection(busId) {
+                if (!busId) return;
+
+                localStorage.setItem("v-track-driver-busId", busId);
+
+                // Update window variables
+                window.currentBusId = busId;
+
+                console.log(`✅ Bus selected: ${busId}`);
+
+                // Reload page to apply bus selection
+                location.reload();
+            }
+
+            // Initialize bus selection
+            const busDropdown = document.getElementById("busSelectDropdown");
+            const refreshBusBtn = document.getElementById("refreshBusListBtn");
+
+            if (busDropdown) {
+                busDropdown.addEventListener("change", (e) => {
+                    handleBusSelection(e.target.value);
+                });
+            }
+
+            if (refreshBusBtn) {
+                refreshBusBtn.addEventListener("click", () => {
+                    loadAvailableBuses();
+                });
+            }
+
+            // Load buses on page load
+            window.addEventListener("DOMContentLoaded", () => {
+                loadAvailableBuses();
+            });
+
+            // ============================================================
+            // BUS DISPLAY AND CLICK FUNCTIONALITY (from dashboard.html)
+            // ============================================================
+            
+            // Store bus markers
+            let allBusMarkers = {}; // busId -> marker
+            let currentDriverBusId = null;
+            
+            // Initialize bus display on map
+            function initializeBusDisplay() {
+                // Get current driver's bus ID
+                currentDriverBusId = localStorage.getItem("v-track-driver-busId");
+                
+                // Wait for map to be initialized
+                if (window.VTMapAPI && window.VTMapAPI._state && window.VTMapAPI._state.map) {
+                    const map = window.VTMapAPI._state.map;
+                    startBusLocationListener(map);
+                } else {
+                    // Retry after a delay
+                    setTimeout(initializeBusDisplay, 1000);
+                }
+            }
+            
+            // Listen to bus locations and display them on map
+            function startBusLocationListener(map) {
+                if (!window.firebase || !window.firebase.database) {
+                    console.warn('Firebase not available for bus display');
+                    return;
+                }
+                
+                const db = firebase.database();
+                
+                // Listen to all bus locations
+                db.ref('BusLocation').on('value', function(snapshot) {
+                    const busLocations = snapshot.val() || {};
+                    
+                    Object.keys(busLocations).forEach(busId => {
+                        // Skip if this is the driver's own bus (already displayed)
+                        if (busId === currentDriverBusId) return;
+                        
+                        const busData = busLocations[busId];
+                        if (!busData || typeof busData !== 'object') return;
+                        
+                        // Find latest timestamp
+                        const timestamps = Object.keys(busData)
+                            .filter(k => !isNaN(k))
+                            .map(k => parseInt(k))
+                            .sort((a, b) => b - a);
+                        
+                        if (timestamps.length === 0) return;
+                        
+                        const latestTimestamp = timestamps[0];
+                        const locationData = busData[latestTimestamp];
+                        
+                        if (!locationData || !locationData.latitude || !locationData.longitude) return;
+                        
+                        const lat = parseFloat(locationData.latitude);
+                        const lng = parseFloat(locationData.longitude);
+                        
+                        if (isNaN(lat) || isNaN(lng)) return;
+                        
+                        // Check if bus is active (updated within last 5 minutes)
+                        const isActive = (Date.now() - latestTimestamp) < 300000;
+                        
+                        // Update or create marker
+                        if (allBusMarkers[busId]) {
+                            // Update existing marker
+                            allBusMarkers[busId].setLatLng([lat, lng]);
+                            allBusMarkers[busId].setPopupContent(createBusPopup(busId, locationData, isActive));
+                        } else {
+                            // Create new marker
+                            const marker = L.marker([lat, lng], {
+                                icon: createBusIcon(busId, isActive)
+                            }).addTo(map);
+                            
+                            marker.bindPopup(createBusPopup(busId, locationData, isActive));
+                            allBusMarkers[busId] = marker;
+                            
+                            // Add click handler
+                            marker.on('click', function() {
+                                handleBusClick(busId, locationData, isActive);
+                            });
                         }
-                    } else {
-                        // Stop multi-bus map
-                        if (window.MultiBusMap) {
-                            MultiBusMap.stop();
-                            toggleBtn.textContent = "🗺️ Show All Buses";
-                            toggleBtn.style.background = "#10b981";
-                            document.getElementById(
-                                "onlineBusCount",
-                            ).textContent = "0";
+                    });
+                });
+            }
+            
+            // Create bus icon
+            function createBusIcon(busId, isActive) {
+                return L.divIcon({
+                    className: `bus-marker ${isActive ? 'active' : 'inactive'}`,
+                    html: '🚌', // Bus emoji
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+            }
+            
+            // Create bus popup content
+            function createBusPopup(busId, locationData, isActive) {
+                const lastUpdate = new Date(locationData.timestamp || Date.now()).toLocaleTimeString();
+                const speed = locationData.speed ? `${locationData.speed} km/h` : 'N/A';
+                
+                return `
+                    <div style="min-width: 200px;">
+                        <h3 style="margin: 0 0 8px 0;">Bus ${busId}</h3>
+                        <p style="margin: 4px 0;"><strong>Status:</strong> ${isActive ? '<span style="color: #22c55e;">Active</span>' : '<span style="color: #ef4444;">Inactive</span>'}</p>
+                        <p style="margin: 4px 0;"><strong>Speed:</strong> ${speed}</p>
+                        <p style="margin: 4px 0;"><strong>Last Update:</strong> ${lastUpdate}</p>
+                        <div style="margin-top: 12px; display: flex; gap: 8px; flex-direction: column;">
+                            <button onclick="window.selectBusFromMap('${busId}')" style="padding: 8px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 14px;">Track This Bus</button>
+                            <button onclick="window.showBusDetails('${busId}')" style="padding: 8px 12px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 14px;">Show Details</button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Handle bus click
+            function handleBusClick(busId, locationData, isActive) {
+                console.log('Bus clicked:', busId, locationData);
+                // The popup will show automatically, but we can add additional actions here
+            }
+            
+            // Select bus from map (global function)
+            window.selectBusFromMap = function(busId) {
+                if (!busId) return;
+                
+                // Update bus selection dropdown
+                const dropdown = document.getElementById('busSelectDropdown');
+                if (dropdown) {
+                    dropdown.value = busId;
+                    handleBusSelection(busId);
+                }
+            };
+            
+            // Show bus details (global function)
+            window.showBusDetails = function(busId) {
+                if (!busId) return;
+                
+                // Fetch bus details from Firebase
+                if (window.firebase && window.firebase.database) {
+                    const db = firebase.database();
+                    db.ref(`busDetails/${busId}`).once('value').then(snapshot => {
+                        const busData = snapshot.val() || {};
+                        
+                        const details = `
+                            <div style="padding: 20px;">
+                                <h3 style="margin: 0 0 16px 0;">Bus ${busId} Details</h3>
+                                <div style="display: grid; gap: 8px;">
+                                    <div><strong>Bus Name:</strong> ${busData.busName || 'N/A'}</div>
+                                    <div><strong>Bus Number:</strong> ${busData.busNumber || 'N/A'}</div>
+                                    <div><strong>Route:</strong> ${busData.routeName || 'N/A'}</div>
+                                    <div><strong>Driver:</strong> ${busData.driverName || 'N/A'}</div>
+                                    <div><strong>Status:</strong> ${busData.status || 'Unknown'}</div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        // Show in a modal or alert
+                        alert(details.replace(/<[^>]*>/g, '')); // Simple alert, can be replaced with modal
+                    }).catch(error => {
+                        console.error('Error fetching bus details:', error);
+                        alert('Could not load bus details');
+                    });
+                }
+            };
+            
+            // Initialize bus display after map is ready
+            setTimeout(initializeBusDisplay, 2000);
+
+            // ============================================================
+            // SYSTEM INITIALIZATION
+            // ============================================================
+
+            // Initialize Offline Manager
+            if (window.OfflineManager) {
+                OfflineManager.initialize();
+                console.log("✅ Offline Manager initialized");
+
+                // Listen to offline events
+                OfflineManager.on("online", () => {
+                    console.log("🟢 Connection restored");
+                });
+
+                OfflineManager.on("offline", () => {
+                    console.log("🔴 Connection lost");
+                });
+
+                OfflineManager.on("syncComplete", (synced, failed) => {
+                    console.log(
+                        `✅ Sync complete: ${synced} synced, ${failed} failed`,
+                    );
+                });
+            }
+
+            // Integrate Offline Manager with SmartTracker
+            if (window.SmartTracker && window.OfflineManager) {
+                // Store original write function
+                const originalWrite =
+                    window.SmartTracker._writeLocationToFirebase;
+
+                // Override to use offline queue on failure
+                console.log("✅ Integrated Offline Manager with SmartTracker");
+            }
+
+            // ============================================================
+            // TRIP MANAGEMENT
+            // ============================================================
+
+            // Trip Management Controls
+            const startTripBtn = document.getElementById("startTripBtn");
+            const endTripBtn = document.getElementById("endTripBtn");
+            const pauseTripBtn = document.getElementById("pauseTripBtn");
+
+            if (startTripBtn) {
+                startTripBtn.addEventListener("click", async () => {
+                    // Wait for TripManager to be available
+                    if (!window.TripManager) {
+                        alert("Trip Manager is loading, please wait...");
+                        return;
+                    }
+
+                    const busId = localStorage.getItem("v-track-driver-busId");
+                    if (!busId) {
+                        alert("Please select a bus ID first");
+                        return;
+                    }
+
+                    // Show route selection modal
+                    const selectedRoute = await showRouteSelectionModal(busId);
+                    if (!selectedRoute) {
+                        return; // User cancelled
+                    }
+
+                    try {
+                        // Add visual feedback effect
+                        startTripBtn.style.transform = "scale(0.95)";
+                        startTripBtn.style.opacity = "0.7";
+                        startTripBtn.textContent = "⏳ Starting...";
+
+                        // Get driver ID from localStorage
+                        let driverId = null;
+                        try {
+                            driverId = localStorage.getItem("vtrack_driver_uid");
+                        } catch (e) {
+                            console.warn("Failed to get driver ID from localStorage:", e);
                         }
+
+                        const tripId = await window.TripManager.startTrip(
+                            busId,
+                            selectedRoute.routeId,
+                            driverId
+                        );
+
+                        // Send initial location to Firebase
+                        await sendInitialLocationOnTripStart(busId);
+
+                        // Start location tracking with continuous updates
+                        if (window.SmartTracker) {
+                            window.SmartTracker.start(busId, {
+                                onLocationUpdate: (locationData) => {
+                                    console.log(
+                                        "[Driver] Location update:",
+                                        locationData,
+                                    );
+                                    // Update map if available
+                                    if (
+                                        window.VTMapAPI &&
+                                        window.VTMapAPI.updateDriverMarker
+                                    ) {
+                                        window.VTMapAPI.updateDriverMarker(
+                                            locationData.latitude,
+                                            locationData.longitude,
+                                            `Bus: ${busId}<br>Speed: ${locationData.speed} km/h<br>Time: ${new Date().toLocaleTimeString()}`,
+                                        );
+                                    }
+                                },
+                                onError: (error) => {
+                                    console.error(
+                                        "[Driver] Tracking error:",
+                                        error,
+                                    );
+                                },
+                            });
+                        }
+
+                        // Display selected route on main map (route only, not history)
+                        if (
+                            selectedRoute.routePoints &&
+                            selectedRoute.routePoints.length > 0 &&
+                            window.VTMapAPI &&
+                            window.VTMapAPI._state &&
+                            window.VTMapAPI._state.map
+                        ) {
+                            const map = window.VTMapAPI._state.map;
+                            const latlngs = selectedRoute.routePoints.map(
+                                (p) => [p.lat, p.lng],
+                            );
+                            if (window.currentRoutePolyline) {
+                                map.removeLayer(window.currentRoutePolyline);
+                            }
+                            window.currentRoutePolyline = L.polyline(latlngs, {
+                                color: "#3b82f6",
+                                weight: 4,
+                                opacity: 0.7,
+                            }).addTo(map);
+                            map.fitBounds(latlngs, { padding: [50, 50] });
+                        }
+
+                        // Visual feedback - success animation
+                        startTripBtn.style.transform = "scale(1.1)";
+                        startTripBtn.style.background = "#22c55e";
+                        startTripBtn.textContent = "✅ Started!";
+
+                        setTimeout(() => {
+                            startTripBtn.style.transform = "scale(1)";
+                            startTripBtn.style.opacity = "1";
+                            startTripBtn.disabled = true;
+                            startTripBtn.style.background = "#3b82f6";
+                            startTripBtn.textContent = "🚀 Trip Active";
+                        }, 1000);
+
+                        endTripBtn.disabled = false;
+                        pauseTripBtn.disabled = false;
+
+                        // Show success notification
+                        const notification = document.createElement("div");
+                        notification.style.cssText = `
+                            position: fixed;
+                            top: 20px;
+                            left: 50%;
+                            transform: translateX(-50%);
+                            background: #22c55e;
+                            color: white;
+                            padding: 15px 25px;
+                            border-radius: 8px;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                            z-index: 10001;
+                            font-weight: 600;
+                            animation: slideDown 0.3s ease;
+                        `;
+                        notification.innerHTML = `🚀 Trip Started! Route: ${selectedRoute.routeName}`;
+                        document.body.appendChild(notification);
+
+                        setTimeout(() => {
+                            notification.style.animation = "slideUp 0.3s ease";
+                            setTimeout(() => notification.remove(), 300);
+                        }, 3000);
+
+                        console.log("✅ Trip started:", tripId);
+                    } catch (error) {
+                        alert("Failed to start trip: " + error.message);
+                        console.error("❌ Trip start failed:", error);
                     }
                 });
+            }
+
+            if (endTripBtn) {
+                endTripBtn.addEventListener("click", async () => {
+                    if (!window.TripManager || !window.TripManager.isActive()) {
+                        alert("No active trip to end.");
+                        return;
+                    }
+
+                    if (
+                        !confirm(
+                            "🏁 End current trip?\n\nThis will save the trip data and mark it as completed.",
+                        )
+                    ) {
+                        return;
+                    }
+
+                    try {
+                        // Stop location tracking
+                        if (
+                            window.SmartTracker &&
+                            window.SmartTracker.isTracking()
+                        ) {
+                            window.SmartTracker.stop();
+                        }
+
+                        const trip = await window.TripManager.endTrip();
+
+                        if (trip) {
+                            startTripBtn.disabled = false;
+                            endTripBtn.disabled = true;
+                            pauseTripBtn.disabled = true;
+
+                            const duration = Math.round(trip.duration / 60000);
+                            const distance = trip.distance.toFixed(2);
+
+                            alert(
+                                `🏁 Trip completed successfully!\n\nDuration: ${duration} minutes\nDistance: ${distance} km\nStops: ${trip.totalStops}`,
+                            );
+                            console.log("✅ Trip ended:", trip);
+                        }
+                    } catch (error) {
+                        alert("Failed to end trip: " + error.message);
+                        console.error("❌ Trip end failed:", error);
+                    }
+                });
+            }
+
+            if (pauseTripBtn) {
+                pauseTripBtn.addEventListener("click", async () => {
+                    if (!window.TripManager || !window.TripManager.isActive()) {
+                        alert("No active trip to pause or resume.");
+                        return;
+                    }
+
+                    try {
+                        const currentTrip = window.TripManager.getCurrentTrip();
+
+                        if (currentTrip && currentTrip.status === "paused") {
+                            // Resume trip
+                            await window.TripManager.resumeTrip();
+                            pauseTripBtn.textContent = "⏸️ Pause";
+                            pauseTripBtn.style.background = "#f59e0b";
+                            alert("▶️ Trip resumed");
+                        } else {
+                            // Pause trip
+                            const reason =
+                                prompt("Reason for pause (optional):") ||
+                                "Driver initiated";
+                            await window.TripManager.pauseTrip(reason);
+                            pauseTripBtn.textContent = "▶️ Resume";
+                            pauseTripBtn.style.background = "#22c55e";
+                            alert("⏸️ Trip paused");
+                        }
+                    } catch (error) {
+                        alert("Failed to pause/resume trip: " + error.message);
+                        console.error("❌ Trip pause/resume failed:", error);
+                    }
+                });
+            }
+
+            // Integrate Trip Manager with SmartTracker
+            if (window.SmartTracker && window.TripManager) {
+                // Listen to location updates to track distance
+                window.TripManagerCallbacks = {
+                    onTripStart: (trip) => {
+                        console.log("🚀 Trip started callback:", trip.tripId);
+                    },
+                    onTripEnd: (summary) => {
+                        console.log("🏁 Trip ended callback:", summary);
+                    },
+                };
+            }
+
+            // Load active trip on page load
+            window.addEventListener("DOMContentLoaded", async () => {
+                const busId = localStorage.getItem("v-track-driver-busId");
+                if (busId && window.TripManager) {
+                    const activeTrip =
+                        await window.TripManager.loadActiveTrip(busId);
+                    if (activeTrip) {
+                        console.log(
+                            "✅ Active trip loaded:",
+                            activeTrip.tripId,
+                        );
+                        if (startTripBtn) startTripBtn.disabled = true;
+                        if (endTripBtn) endTripBtn.disabled = false;
+                        if (pauseTripBtn) pauseTripBtn.disabled = false;
+
+                        if (activeTrip.status === "paused") {
+                            pauseTripBtn.textContent = "▶️ Resume";
+                            pauseTripBtn.style.background = "#22c55e";
+                        }
+
+                        // Start location tracking for active trip
+                        if (
+                            window.SmartTracker &&
+                            !window.SmartTracker.isTracking()
+                        ) {
+                            window.SmartTracker.start(busId, {
+                                onLocationUpdate: (locationData) => {
+                                    console.log(
+                                        "[Driver] Location update:",
+                                        locationData,
+                                    );
+                                    // Update map if available
+                                    if (
+                                        window.VTMapAPI &&
+                                        window.VTMapAPI.updateDriverMarker
+                                    ) {
+                                        window.VTMapAPI.updateDriverMarker(
+                                            locationData.latitude,
+                                            locationData.longitude,
+                                            `Bus: ${busId}<br>Speed: ${locationData.speed} km/h`,
+                                        );
+                                    }
+                                },
+                                onError: (error) => {
+                                    console.error(
+                                        "[Driver] Tracking error:",
+                                        error,
+                                    );
+                                },
+                            });
+                        }
+                    }
+                }
+            });
+
+            // ============================================================
+            // EMERGENCY ALERT SYSTEM
+            // ============================================================
+
+            const emergencyBtn = document.getElementById("emergencyBtn");
+
+            if (emergencyBtn) {
+                emergencyBtn.addEventListener("click", async () => {
+                    // Double confirmation for safety
+                    const confirmed = confirm(
+                        "⚠️ TRIGGER EMERGENCY ALERT?\n\nThis will immediately notify the admin and authorities.\n\nPress OK to confirm.",
+                    );
+
+                    if (!confirmed) {
+                        return;
+                    }
+
+                    const description =
+                        prompt("Brief description of emergency (optional):") ||
+                        "Emergency situation";
+
+                    try {
+                        const busId = localStorage.getItem(
+                            "v-track-driver-busId",
+                        );
+                        const driverId =
+                            sessionStorage.getItem("driverId") ||
+                            "driver_unknown";
+
+                        // Get current location
+                        const location = await new Promise((resolve) => {
+                            navigator.geolocation.getCurrentPosition(
+                                (pos) =>
+                                    resolve({
+                                        latitude: pos.coords.latitude,
+                                        longitude: pos.coords.longitude,
+                                    }),
+                                () => resolve(null),
+                            );
+                        });
+
+                        const emergency = {
+                            busId: busId,
+                            driverId: driverId,
+                            location: location,
+                            description: description,
+                            timestamp: Date.now(),
+                            status: "active",
+                            type: "panic_button",
+                        };
+
+                        // Write to Firebase
+                        const ref = await firebase
+                            .database()
+                            .ref("emergencies")
+                            .push(emergency);
+
+                        // Also write to bus-specific emergency
+                        await firebase
+                            .database()
+                            .ref(`buses/${busId}/emergency`)
+                            .set(emergency);
+
+                        console.log("🚨 Emergency alert sent:", ref.key);
+
+                        // Visual feedback - flash red
+                        document.body.style.background = "#ef4444";
+                        setTimeout(() => {
+                            document.body.style.background = "";
+                        }, 500);
+
+                        alert(
+                            "🚨 EMERGENCY ALERT SENT!\n\nAdmin has been notified immediately.\nHelp is on the way!\n\nStay safe and wait for assistance.",
+                        );
+                    } catch (error) {
+                        console.error("❌ Emergency alert failed:", error);
+                        alert(
+                            "⚠️ Failed to send emergency alert!\n\nPlease call emergency services directly:\n📞 100 or local emergency number",
+                        );
+                    }
+                });
+            }
+
+            // ============================================================
+            // EMERGENCY ALERT LISTENER
+            // ============================================================
+
+            function listenForEmergencies() {
+                const db = firebase.database();
+                const emergenciesRef = db.ref("emergencies");
+                const currentBusId = localStorage.getItem(
+                    "v-track-driver-busId",
+                );
+
+                emergenciesRef.on("child_added", (snapshot) => {
+                    const emergency = snapshot.val();
+                    // Don't show alert for own emergency
+                    if (!emergency || emergency.busId === currentBusId) {
+                        return;
+                    }
+
+                    // Check if the emergency is recent (e.g., within the last 5 minutes)
+                    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+                    if (emergency.timestamp < fiveMinutesAgo) {
+                        return;
+                    }
+
+                    showEmergencyPopup(emergency);
+                });
+            }
+
+            function showEmergencyPopup(emergency) {
+                // Create popup element
+                const popup = document.createElement("div");
+                popup.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: linear-gradient(135deg, #ef4444, #dc2626);
+                    color: white;
+                    padding: 20px 30px;
+                    border-radius: 12px;
+                    box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+                    z-index: 10002;
+                    font-family: sans-serif;
+                    text-align: center;
+                    animation: slideDown 0.5s ease-out;
+                `;
+
+                popup.innerHTML = `
+                    <h2 style="margin: 0 0 10px 0; font-size: 24px;">🚨 EMERGENCY ALERT 🚨</h2>
+                    <p style="margin: 0; font-size: 16px;">
+                        Bus <strong>${emergency.busId}</strong> has triggered an emergency alert.
+                    </p>
+                    <p style="margin-top: 5px; font-size: 14px; opacity: 0.9;">
+                        Description: ${emergency.description || "No description provided."}
+                    </p>
+                    <button id="closeEmergencyPopup" style="
+                        margin-top: 15px;
+                        padding: 8px 16px;
+                        background: rgba(255, 255, 255, 0.2);
+                        border: 1px solid white;
+                        color: white;
+                        border-radius: 6px;
+                        cursor: pointer;
+                    ">Dismiss</button>
+                `;
+
+                document.body.appendChild(popup);
+
+                document
+                    .getElementById("closeEmergencyPopup")
+                    .addEventListener("click", () => {
+                        popup.style.animation = "slideUp 0.3s ease-in";
+                        setTimeout(() => popup.remove(), 300);
+                    });
+            }
+
+            // Start listening when the page loads
+            window.addEventListener("DOMContentLoaded", () => {
+                listenForEmergencies();
+            });
+
+            // ============================================================
+            // FOCUS MODE
+            // ============================================================
+
+            let focusModeMap = null;
+            let focusModeActive = false;
+            const focusModeEl = document.getElementById("focusMode");
+            const exitFocusBtn = document.getElementById("exitFocus");
+            const navFocusBtn = document.getElementById("navFocusBtn");
+            const focusMapContainer =
+                document.getElementById("focusMapContainer");
+
+            // Initialize focus mode map
+            function initFocusModeMap() {
+                if (focusModeMap || typeof L === "undefined") return;
+
+                const mapContainer = document.getElementById("focusMap");
+                if (!mapContainer) return;
+
+                focusModeMap = L.map("focusMap").setView([28.215, 83.9886], 13);
+
+                L.tileLayer(
+                    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                    {
+                        attribution: "&copy; OpenStreetMap contributors",
+                    },
+                ).addTo(focusModeMap);
+
+                // Copy main map state if available
+                if (
+                    window.VTMapAPI &&
+                    window.VTMapAPI._state &&
+                    window.VTMapAPI._state.map
+                ) {
+                    const mainMap = window.VTMapAPI._state.map;
+                    const center = mainMap.getCenter();
+                    const zoom = mainMap.getZoom();
+                    focusModeMap.setView([center.lat, center.lng], zoom);
+
+                    // Copy route polyline if exists
+                    if (window.currentRoutePolyline) {
+                        const latlngs =
+                            window.currentRoutePolyline.getLatLngs();
+                        L.polyline(latlngs, {
+                            color: "#3b82f6",
+                            weight: 4,
+                            opacity: 0.7,
+                        }).addTo(focusModeMap);
+                    }
+                }
+
+                // Copy bus marker if available
+                if (
+                    window.VTMapAPI &&
+                    window.VTMapAPI._state &&
+                    window.VTMapAPI._state.busMarker
+                ) {
+                    const busMarker = window.VTMapAPI._state.busMarker;
+                    const latlng = busMarker.getLatLng();
+                    const popup =
+                        busMarker.getPopup()?.getContent() || "Bus Location";
+
+                    L.marker([latlng.lat, latlng.lng], {
+                        icon: L.divIcon({
+                            className: "focus-bus-marker",
+                            html: '<div style="background: #3b82f6; color: white; padding: 12px; border-radius: 50%; font-size: 20px; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">🚌</div>',
+                            iconSize: [40, 40],
+                            iconAnchor: [20, 20],
+                        }),
+                    })
+                        .addTo(focusModeMap)
+                        .bindPopup(popup);
+                }
+            }
+
+            // Toggle focus mode
+            function toggleFocusMode() {
+                focusModeActive = !focusModeActive;
+
+                if (focusModeActive) {
+                    focusModeEl.style.display = "flex";
+
+                    // Small delay to ensure DOM is ready
+                    setTimeout(() => {
+                        initFocusModeMap();
+                    }, 100);
+
+                    // Update bus info
+                    const busId = localStorage.getItem("v-track-driver-busId");
+                    if (busId) {
+                        document.getElementById("focusBusInfo").textContent =
+                            `Bus: ${busId}`;
+                    }
+
+                    // Start real-time location updates in focus mode
+                    if (
+                        window.SmartTracker &&
+                        window.SmartTracker.isTracking()
+                    ) {
+                        // Location updates will be handled by updateFocusModeInfo
+                    }
+
+                    // Update nav button
+                    if (navFocusBtn) {
+                        navFocusBtn.style.color = "#3b82f6";
+                        navFocusBtn.style.fontWeight = "600";
+                    }
+                } else {
+                    focusModeEl.style.display = "none";
+
+                    // Clean up focus mode bus marker
+                    if (window.focusModeBusMarker && focusModeMap) {
+                        focusModeMap.removeLayer(window.focusModeBusMarker);
+                        window.focusModeBusMarker = null;
+                    }
+
+                    // Update nav button
+                    if (navFocusBtn) {
+                        navFocusBtn.style.color = "#6b7280";
+                        navFocusBtn.style.fontWeight = "500";
+                    }
+                }
+            }
+
+            // Check if focus mode should be opened from URL parameter
+            if (window.location.search.includes("focus=true")) {
+                setTimeout(() => {
+                    toggleFocusMode();
+                    // Clean URL
+                    window.history.replaceState(
+                        {},
+                        document.title,
+                        window.location.pathname,
+                    );
+                }, 500);
+            }
+
+            // Exit focus mode
+            if (exitFocusBtn) {
+                exitFocusBtn.addEventListener("click", () => {
+                    toggleFocusMode();
+                });
+            }
+
+            // Nav focus button
+            if (navFocusBtn) {
+                navFocusBtn.addEventListener("click", () => {
+                    toggleFocusMode();
+                });
+            }
+
+            // Focus mode route button
+            const focusRouteBtn = document.getElementById("focusRouteBtn");
+            if (focusRouteBtn) {
+                focusRouteBtn.addEventListener("click", () => {
+                    window.location.href = "driver-route.html";
+                });
+            }
+
+            // Focus mode show buses button
+            const focusShowBusesBtn =
+                document.getElementById("focusShowBusesBtn");
+            if (focusShowBusesBtn) {
+                let showingBusesInFocus = false;
+                focusShowBusesBtn.addEventListener("click", () => {
+                    showingBusesInFocus = !showingBusesInFocus;
+                    const busId = localStorage.getItem("v-track-driver-busId");
+
+                    if (
+                        showingBusesInFocus &&
+                        focusModeMap &&
+                        busId &&
+                        window.MultiBusMap
+                    ) {
+                        window.MultiBusMap.initialize(focusModeMap, busId);
+                        focusShowBusesBtn.textContent = "🗺️ Hide Buses";
+                        focusShowBusesBtn.style.background = "#ef4444";
+                    } else {
+                        if (window.MultiBusMap) {
+                            window.MultiBusMap.stop();
+                        }
+                        focusShowBusesBtn.textContent = "🗺️ Show Buses";
+                        focusShowBusesBtn.style.background = "#10b981";
+                    }
+                });
+            }
+
+            // Update focus mode info from trip data
+            function updateFocusModeInfo() {
+                if (!focusModeActive || !focusModeMap) return;
+
+                // Update next stop
+                const currentTrip = window.TripManager?.getCurrentTrip();
+                if (currentTrip && currentTrip.routeName) {
+                    document.getElementById("focusNextStop").textContent =
+                        currentTrip.routeName;
+                }
+
+                // Update speed (if available from SmartTracker)
+                if (window.SmartTracker) {
+                    const state = window.SmartTracker.getState();
+                    if (state && state.currentSpeed !== undefined) {
+                        document.getElementById("focusSpeed").textContent =
+                            `${state.currentSpeed} km/h`;
+                    }
+
+                    // Update bus marker position in focus mode
+                    if (state.lastRecordedPosition && focusModeMap) {
+                        const lat = state.lastRecordedPosition.latitude;
+                        const lng = state.lastRecordedPosition.longitude;
+
+                        // Update or create bus marker
+                        if (!window.focusModeBusMarker) {
+                            window.focusModeBusMarker = L.marker([lat, lng], {
+                                icon: L.divIcon({
+                                    className: "focus-bus-marker",
+                                    html: '<div style="background: #3b82f6; color: white; padding: 12px; border-radius: 50%; font-size: 20px; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">🚌</div>',
+                                    iconSize: [40, 40],
+                                    iconAnchor: [20, 20],
+                                }),
+                            }).addTo(focusModeMap);
+                        } else {
+                            window.focusModeBusMarker.setLatLng([lat, lng]);
+                        }
+
+                        // Pan map to bus position (smoothly, not jumping)
+                        const currentZoom = focusModeMap.getZoom();
+                        focusModeMap.setView([lat, lng], currentZoom, {
+                            animate: true,
+                            duration: 0.5,
+                        });
+                    }
+                }
+            }
+
+            // Update focus mode info periodically
+            setInterval(updateFocusModeInfo, 2000);
+
+            // ============================================================
+            // RESPONSIVE STYLES
+            // ============================================================
+
+            // Add padding to body for bottom nav
+            document.body.style.paddingBottom = "70px";
+
+            // Make map area responsive
+            const mapArea = document.querySelector(".map-area");
+            if (mapArea) {
+                mapArea.style.height = "calc(100vh - 200px)";
             }
 
             // Uncomment to enable real-time monitoring widget
@@ -307,6 +1602,299 @@
                 "%cComparison: Open tracker-comparison.html to see the difference",
                 "color: #3b82f6; font-size: 12px;",
             );
+            console.log(
+                "%c🚀 Trip Manager: Start/End/Pause trips",
+                "color: #22c55e; font-size: 12px;",
+            );
+            console.log(
+                "%c📡 Offline Manager: Auto-queues when offline",
+                "color: #f59e0b; font-size: 12px;",
+            );
+            console.log(
+                "%c🚨 Emergency Button: Bottom-right corner (click for help)",
+                "color: #ef4444; font-size: 12px;",
+            );
+
+            // ============================================================
+            // ROUTE SELECTION MODAL
+            // ============================================================
+
+            /**
+             * Show route selection modal and return selected route
+             */
+            async function showRouteSelectionModal(busId) {
+                return new Promise(async (resolve) => {
+                    // Create modal overlay
+                    const overlay = document.createElement("div");
+                    overlay.id = "routeSelectionModal";
+                    overlay.style.cssText = `
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0, 0, 0, 0.7);
+                        z-index: 10000;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    `;
+
+                    // Create modal content
+                    const modal = document.createElement("div");
+                    modal.style.cssText = `
+                        background: white;
+                        border-radius: 12px;
+                        padding: 24px;
+                        max-width: 600px;
+                        width: 90%;
+                        max-height: 80vh;
+                        overflow-y: auto;
+                        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+                    `;
+
+                    modal.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h2 style="margin: 0; color: #1f2937;">Select Route</h2>
+                            <button id="closeRouteModal" style="
+                                background: none;
+                                border: none;
+                                font-size: 24px;
+                                cursor: pointer;
+                                color: #6b7280;
+                                padding: 0;
+                                width: 30px;
+                                height: 30px;
+                            ">×</button>
+                        </div>
+                        <div id="routesList" style="margin-bottom: 20px;">
+                            <div style="text-align: center; padding: 40px; color: #6b7280;">
+                                Loading routes...
+                            </div>
+                        </div>
+                        <div id="mapContainer" style="height: 300px; margin-bottom: 20px; border: 1px solid #e5e7eb; border-radius: 8px; display: none;"></div>
+                    `;
+
+                    overlay.appendChild(modal);
+                    document.body.appendChild(overlay);
+
+                    // Initialize map for route preview
+                    let previewMap = null;
+                    let routePolyline = null;
+
+                    // Load routes from Firebase
+                    try {
+                        const db = firebase.database();
+                        const routesSnapshot = await db
+                            .ref("routes")
+                            .once("value");
+                        const routes = routesSnapshot.val() || {};
+
+                        const routesList =
+                            document.getElementById("routesList");
+                        routesList.innerHTML = "";
+
+                        if (Object.keys(routes).length === 0) {
+                            routesList.innerHTML = `
+                                <div style="text-align: center; padding: 40px; color: #6b7280;">
+                                    <p>No routes available. Please contact admin to create routes.</p>
+                                </div>
+                            `;
+                        } else {
+                            // Create route items
+                            Object.entries(routes).forEach(
+                                ([routeId, route]) => {
+                                    const routeItem =
+                                        document.createElement("div");
+                                    routeItem.style.cssText = `
+                                    padding: 16px;
+                                    border: 2px solid #e5e7eb;
+                                    border-radius: 8px;
+                                    margin-bottom: 12px;
+                                    cursor: pointer;
+                                    transition: all 0.2s;
+                                `;
+                                    routeItem.innerHTML = `
+                                    <h3 style="margin: 0 0 8px 0; color: #1f2937;">${route.name || routeId}</h3>
+                                    <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">
+                                        ${route.description || "No description"}
+                                    </p>
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="color: #9ca3af; font-size: 12px;">
+                                            ${route.points ? route.points.length : 0} stops
+                                        </span>
+                                        <button class="selectRouteBtn" data-route-id="${routeId}" style="
+                                            background: #3b82f6;
+                                            color: white;
+                                            border: none;
+                                            padding: 8px 16px;
+                                            border-radius: 6px;
+                                            cursor: pointer;
+                                            font-weight: 500;
+                                        ">Select</button>
+                                    </div>
+                                `;
+
+                                    // Hover effect
+                                    routeItem.addEventListener(
+                                        "mouseenter",
+                                        () => {
+                                            routeItem.style.borderColor =
+                                                "#3b82f6";
+                                            routeItem.style.background =
+                                                "#f0f9ff";
+                                        },
+                                    );
+                                    routeItem.addEventListener(
+                                        "mouseleave",
+                                        () => {
+                                            routeItem.style.borderColor =
+                                                "#e5e7eb";
+                                            routeItem.style.background =
+                                                "white";
+                                        },
+                                    );
+
+                                    // Show route on map on hover
+                                    routeItem.addEventListener(
+                                        "mouseenter",
+                                        () => {
+                                            displayRouteOnMap(route, routeId);
+                                        },
+                                    );
+
+                                    routesList.appendChild(routeItem);
+                                },
+                            );
+                        }
+
+                        // Initialize map
+                        const mapContainer =
+                            document.getElementById("mapContainer");
+                        if (typeof L !== "undefined") {
+                            previewMap = L.map("mapContainer").setView(
+                                [28.215, 83.9886],
+                                13,
+                            );
+                            L.tileLayer(
+                                "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                                {
+                                    attribution:
+                                        "&copy; OpenStreetMap contributors",
+                                },
+                            ).addTo(previewMap);
+                            mapContainer.style.display = "block";
+                        }
+
+                        // Display route on map
+                        function displayRouteOnMap(route, routeId) {
+                            if (
+                                !previewMap ||
+                                !route.points ||
+                                route.points.length < 2
+                            )
+                                return;
+
+                            // Clear previous polyline
+                            if (routePolyline) {
+                                previewMap.removeLayer(routePolyline);
+                            }
+
+                            // Create polyline from route points
+                            const latlngs = route.points.map((p) => [
+                                p.lat,
+                                p.lng,
+                            ]);
+                            routePolyline = L.polyline(latlngs, {
+                                color: "#3b82f6",
+                                weight: 4,
+                                opacity: 0.7,
+                            }).addTo(previewMap);
+
+                            // Fit map to route bounds
+                            previewMap.fitBounds(latlngs, {
+                                padding: [20, 20],
+                            });
+                        }
+
+                        // Handle route selection
+                        document
+                            .querySelectorAll(".selectRouteBtn")
+                            .forEach((btn) => {
+                                btn.addEventListener("click", (e) => {
+                                    e.stopPropagation();
+                                    const routeId =
+                                        btn.getAttribute("data-route-id");
+                                    const route = routes[routeId];
+
+                                    // Remove modal
+                                    document.body.removeChild(overlay);
+
+                                    // Resolve with selected route
+                                    resolve({
+                                        routeId: routeId,
+                                        routeName: route.name || routeId,
+                                        routeDescription:
+                                            route.description || "",
+                                        routePoints: route.points || [],
+                                    });
+                                });
+                            });
+                    } catch (error) {
+                        console.error("Error loading routes:", error);
+                        document.getElementById("routesList").innerHTML = `
+                            <div style="text-align: center; padding: 40px; color: #ef4444;">
+                                <p>Error loading routes: ${error.message}</p>
+                            </div>
+                        `;
+                    }
+
+                    // Close button handler
+                    document
+                        .getElementById("closeRouteModal")
+                        .addEventListener("click", () => {
+                            document.body.removeChild(overlay);
+                            resolve(null);
+                        });
+
+                    // Close on overlay click
+                    overlay.addEventListener("click", (e) => {
+                        if (e.target === overlay) {
+                            document.body.removeChild(overlay);
+                            resolve(null);
+                        }
+                    });
+                });
+            }
+
+            async function sendInitialLocationOnTripStart(busId) {
+                try {
+                    const db = firebase.database();
+                    const now = Date.now();
+
+                    const position = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(
+                            resolve,
+                            reject,
+                        );
+                    });
+
+                    const { latitude, longitude } = position.coords;
+
+                    // Store initial location in Firebase under BusLocation
+                    await db.ref(`BusLocation/${busId}/${now}`).set({
+                        latitude: latitude,
+                        longitude: longitude,
+                    });
+
+                    console.log(
+                        "✅ Initial location sent to Firebase:",
+                        `BusLocation/${busId}/${now}`,
+                    );
+                } catch (error) {
+                    console.error("❌ Failed to send initial location:", error);
+                }
+            }
         </script>
     </body>
 </html>

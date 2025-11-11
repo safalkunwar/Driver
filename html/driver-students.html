@@ -36,84 +36,17 @@
     <section class="student-list">
       <h3>📋 Student List (<span id="studentCount">0</span>)</h3>
       <div id="studentListContainer">
-        <!-- Students will be populated here -->
-        <div class="student-card">
-          <div style="display: flex; justify-content: space-between; align-items: start;">
-            <div>
-              <h4>Aayush Sharma</h4>
-              <p>📍 Lakeside, Pokhara (800m ahead)</p>
-              <p>🏫 Grade 10 • Roll: 45</p>
-            </div>
-            <span class="status-badge waiting">Waiting</span>
-          </div>
-          <div style="margin-top: 8px; font-size: 0.85rem; color: #9ca3af;">
-            <span>📞 Contact: 98XXXXXXXX</span>
-          </div>
-        </div>
-
-        <div class="student-card">
-          <div style="display: flex; justify-content: space-between; align-items: start;">
-            <div>
-              <h4>Priya Gurung</h4>
-              <p>📍 Mah</span>endrapool (1.2km ahead)</p>
-              <p>🏫 Grade 9 • Roll: 23</p>
-            </div>
-            <span class="status-badge waiting">Waiting</span>
-          </div>
-          <div style="margin-top: 8px; font-size: 0.85rem; color: #9ca3af;">
-            <span>📞 Contact: 98XXXXXXXX</span>
-          </div>
-        </div>
-
-        <div class="student-card">
-          <div style="display: flex; justify-content: space-between; align-items: start;">
-            <div>
-              <h4>Rohan Thapa</h4>
-              <p>📍 New Road (50m ahead)</p>
-              <p>🏫 Grade 8 • Roll: 12</p>
-            </div>
-            <span class="status-badge nearby">Nearby</span>
-          </div>
-          <div style="margin-top: 8px; font-size: 0.85rem; color: #9ca3af;">
-            <span>📞 Contact: 98XXXXXXXX</span>
-          </div>
-        </div>
-
-        <div class="student-card">
-          <div style="display: flex; justify-content: space-between; align-items: start;">
-            <div>
-              <h4>Sita Poudel</h4>
-              <p>📍 On Board</p>
-              <p>🏫 Grade 10 • Roll: 8</p>
-            </div>
-            <span class="status-badge onboard">On Board</span>
-          </div>
-          <div style="margin-top: 8px; font-size: 0.85rem; color: #9ca3af;">
-            <span>Picked up at: 07:15 AM</span>
-          </div>
-        </div>
-
-        <div class="student-card">
-          <div style="display: flex; justify-content: space-between; align-items: start;">
-            <div>
-              <h4>Bijay Rai</h4>
-              <p>📍 On Board</p>
-              <p>🏫 Grade 9 • Roll: 34</p>
-            </div>
-            <span class="status-badge onboard">On Board</span>
-          </div>
-          <div style="margin-top: 8px; font-size: 0.85rem; color: #9ca3af;">
-            <span>Picked up at: 07:10 AM</span>
-          </div>
+        <!-- Students will be populated here from Firebase -->
+        <div style="padding: 20px; text-align: center; color: #9ca3af;">
+          <div class="loading-spinner" style="display: inline-block; width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          <span style="margin-left: 8px;">Loading students...</span>
         </div>
       </div>
     </section>
 
     <!-- Actions -->
     <section class="actions-section" style="padding: 16px; background: #161b22;">
-      <button class="action-btn primary" onclick="markAllPresent()">
-        ✓ Mark All Present
-      </button>
+
       <button class="action-btn secondary" onclick="refreshStudentList()">
         🔄 Refresh List
       </button>
@@ -146,6 +79,289 @@
     let studentsMap;
     let busMarker;
     let studentMarkers = [];
+    let busId = null;
+    let busLocation = null;
+    let studentsData = [];
+
+    // Get bus ID from localStorage or driverInfo
+    async function getBusId() {
+      if (busId) return busId;
+      
+      // Try localStorage first
+      try {
+        busId = localStorage.getItem('v-track-driver-busId');
+        if (busId) return busId;
+      } catch(e) {}
+
+      // Try to get from driverInfo
+      try {
+        const uid = localStorage.getItem('vtrack_driver_uid');
+        if (uid && window.VTApp) {
+          const db = VTApp.getDb();
+          if (db) {
+            const snap = await db.ref(`driverInfo/${uid}`).once('value');
+            const driverData = snap.val() || {};
+            if (driverData.assignedBusId) {
+              busId = driverData.assignedBusId;
+              try { localStorage.setItem('v-track-driver-busId', busId); } catch(e) {}
+              return busId;
+            }
+          }
+        }
+      } catch(e) {
+        console.error('Error getting bus ID:', e);
+      }
+
+      return null;
+    }
+
+    // Calculate distance between two coordinates (Haversine formula)
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371000; // Earth radius in meters
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    // Get bus location from Firebase
+    async function getBusLocation() {
+      if (!busId || !window.VTApp) return null;
+
+      try {
+        const db = VTApp.getDb();
+        if (!db) return null;
+        const snap = await db.ref(`BusLocation/${busId}`).once('value');
+        const locations = snap.val() || {};
+        
+        if (typeof locations !== 'object') return null;
+
+        // Find latest timestamp
+        const timestamps = Object.keys(locations).filter(k => !isNaN(k)).map(k => parseInt(k));
+        if (timestamps.length === 0) return null;
+
+        const latestTimestamp = Math.max(...timestamps);
+        const locationData = locations[latestTimestamp];
+
+        if (locationData && locationData.latitude && locationData.longitude) {
+          return {
+            lat: parseFloat(locationData.latitude),
+            lng: parseFloat(locationData.longitude),
+            timestamp: latestTimestamp
+          };
+        }
+      } catch(e) {
+        console.error('Error getting bus location:', e);
+      }
+
+      return null;
+    }
+
+    // Determine student status
+    function determineStatus(student, hasNotification) {
+      // If bus location is available, check distance first
+      if (busLocation) {
+        const distance = calculateDistance(
+          busLocation.lat,
+          busLocation.lng,
+          student.lat,
+          student.lng
+        );
+
+        // If within 50 meters, student is on board (priority over waiting)
+        if (distance <= 50) {
+          return 'onboard';
+        }
+      }
+
+      // If student sent notification and not on board, they are waiting
+      if (hasNotification) {
+        return 'waiting';
+      }
+
+      // Otherwise, student is nearby (using platform but not waiting)
+      return 'nearby';
+    }
+
+    // Load students from Firebase
+    async function loadStudents() {
+      if (!busId) {
+        busId = await getBusId();
+        if (!busId) {
+          console.error('Bus ID not found');
+          document.getElementById('studentListContainer').innerHTML = 
+            '<div style="padding: 20px; text-align: center; color: #9ca3af;">Bus ID not found. Please select a bus first.</div>';
+          return;
+        }
+      }
+
+      // Get bus location
+      busLocation = await getBusLocation();
+      if (busLocation && busMarker) {
+        busMarker.setLatLng([busLocation.lat, busLocation.lng]);
+        studentsMap.setView([busLocation.lat, busLocation.lng], 13);
+      }
+
+      try {
+        if (!window.VTApp) {
+          throw new Error('VTApp not available');
+        }
+        
+        const db = VTApp.getDb();
+        if (!db) {
+          throw new Error('Database not available');
+        }
+        
+        // Fetch waiting notifications
+        const notificationsSnap = await db.ref(`waitingNotifications/${busId}`).once('value');
+        const notifications = notificationsSnap.val() || {};
+
+        // Process notifications into students array
+        const studentsMapData = new Map(); // userId -> student data
+
+        Object.keys(notifications).forEach(timestamp => {
+          const notification = notifications[timestamp];
+          if (!notification || !notification.lat || !notification.lng) return;
+
+          const userId = notification.userId || `anon_${timestamp}`;
+          const name = notification.name || 'Student';
+          const lat = parseFloat(notification.lat);
+          const lng = parseFloat(notification.lng);
+          const notifTimestamp = parseInt(timestamp);
+
+          // Keep the latest notification for each user
+          if (!studentsMapData.has(userId) || studentsMapData.get(userId).timestamp < notifTimestamp) {
+            studentsMapData.set(userId, {
+              userId: userId,
+              name: name,
+              lat: lat,
+              lng: lng,
+              timestamp: notifTimestamp,
+              hasNotification: true,
+              contact: notification.contact || 'N/A'
+            });
+          }
+        });
+
+        // Convert to array and determine status
+        studentsData = Array.from(studentsMapData.values()).map(student => {
+          const status = determineStatus(student, student.hasNotification);
+          return { ...student, status: status };
+        });
+
+        // Sort by status priority: waiting > nearby > onboard
+        const statusOrder = { waiting: 0, nearby: 1, onboard: 2 };
+        studentsData.sort((a, b) => {
+          if (a.status !== b.status) {
+            return statusOrder[a.status] - statusOrder[b.status];
+          }
+          return b.timestamp - a.timestamp; // Newer first
+        });
+
+        // Update UI
+        updateStudentList();
+        updateStudentMarkers();
+        updateStudentCount();
+
+      } catch(e) {
+        console.error('Error loading students:', e);
+        document.getElementById('studentListContainer').innerHTML = 
+          '<div style="padding: 20px; text-align: center; color: #ef4444;">Error loading students. Please try again.</div>';
+      }
+    }
+
+    // Update student list in UI
+    function updateStudentList() {
+      const container = document.getElementById('studentListContainer');
+      if (!container) return;
+
+      if (studentsData.length === 0) {
+        container.innerHTML = '<div style="padding: 20px; text-align: center; color: #9ca3af;">No students found</div>';
+        return;
+      }
+
+      container.innerHTML = studentsData.map(student => {
+        const distance = busLocation 
+          ? (calculateDistance(busLocation.lat, busLocation.lng, student.lat, student.lng) / 1000).toFixed(2) + ' km'
+          : 'N/A';
+
+        const statusText = {
+          waiting: 'Waiting',
+          nearby: 'Nearby',
+          onboard: 'On Board'
+        }[student.status] || 'Unknown';
+
+        const locationText = student.status === 'onboard' 
+          ? '📍 On Board'
+          : `📍 ${distance} away`;
+
+        const timeText = student.status === 'onboard'
+          ? `Picked up at: ${new Date(student.timestamp).toLocaleTimeString()}`
+          : `📞 Contact: ${student.contact}`;
+
+        return `
+          <div class="student-card" data-status="${student.status}">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+              <div>
+                <h4>${student.name}</h4>
+                <p>${locationText}</p>
+              </div>
+              <span class="status-badge ${student.status}">${statusText}</span>
+            </div>
+            <div style="margin-top: 8px; font-size: 0.85rem; color: #9ca3af;">
+              <span>${timeText}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Update student markers on map
+    function updateStudentMarkers() {
+      // Remove old markers
+      studentMarkers.forEach(marker => {
+        studentsMap.removeLayer(marker);
+      });
+      studentMarkers = [];
+
+      // Add new markers
+      studentsData.forEach(student => {
+        const color = {
+          waiting: '#f59e0b',
+          nearby: '#22c55e',
+          onboard: '#3b82f6'
+        }[student.status] || '#9ca3af';
+
+        const studentIcon = L.divIcon({
+          className: 'student-icon',
+          html: `<div style="background: ${color}; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; white-space: nowrap; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">👤 ${student.name}</div>`,
+          iconSize: [120, 30],
+          iconAnchor: [60, 15]
+        });
+
+        const marker = L.marker([student.lat, student.lng], { icon: studentIcon }).addTo(studentsMap);
+        const distance = busLocation 
+          ? (calculateDistance(busLocation.lat, busLocation.lng, student.lat, student.lng) / 1000).toFixed(2) + ' km'
+          : 'N/A';
+        
+        marker.bindPopup(`
+          <b>${student.name}</b><br>
+          Status: ${student.status}<br>
+          Distance: ${distance}<br>
+          ${student.hasNotification ? '🔔 Sent notification' : ''}
+        `);
+        studentMarkers.push(marker);
+      });
+    }
+
+    // Update student count
+    function updateStudentCount() {
+      const count = studentsData.length;
+      document.getElementById('studentCount').textContent = count;
+    }
 
     function initStudentsMap() {
       if (studentsMap) return;
@@ -159,36 +375,48 @@
       // Add bus marker
       const busIcon = L.divIcon({
         className: 'bus-icon',
-        html: '<div style="background: #3b82f6; color: white; padding: 8px; border-radius: 50%; font-size: 20px;">🚌</div>',
-        iconSize: [40, 40]
+        html: '<div style="background: #3b82f6; color: white; padding: 8px; border-radius: 50%; font-size: 20px; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🚌</div>',
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
       });
 
       busMarker = L.marker([28.2096, 83.9856], { icon: busIcon }).addTo(studentsMap);
       busMarker.bindPopup('Your Bus');
 
-      // Add student markers (example)
-      const students = [
-        { name: 'Aayush Sharma', lat: 28.2156, lng: 83.9896, status: 'waiting' },
-        { name: 'Priya Gurung', lat: 28.2186, lng: 83.9916, status: 'waiting' },
-        { name: 'Rohan Thapa', lat: 28.2106, lng: 83.9866, status: 'nearby' }
-      ];
+      // Load students after map is initialized
+      loadStudents();
 
-      students.forEach(student => {
-        const color = student.status === 'nearby' ? '#22c55e' : '#f59e0b';
-        const studentIcon = L.divIcon({
-          className: 'student-icon',
-          html: `<div style="background: ${color}; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; white-space: nowrap;">👤 ${student.name}</div>`,
-          iconSize: [100, 30]
-        });
+      // Set up real-time listeners
+      if (window.VTApp) {
+        const db = VTApp.getDb();
+        if (db) {
+          // Listen to bus location updates
+          db.ref(`BusLocation/${busId}`).on('value', async function(snapshot) {
+            busLocation = await getBusLocation();
+            if (busLocation && busMarker) {
+              busMarker.setLatLng([busLocation.lat, busLocation.lng]);
+            }
+            // Reload students to update statuses
+            loadStudents();
+          });
 
-        const marker = L.marker([student.lat, student.lng], { icon: studentIcon }).addTo(studentsMap);
-        marker.bindPopup(`<b>${student.name}</b><br>Status: ${student.status}`);
-        studentMarkers.push(marker);
-      });
+          // Listen to waiting notifications
+          db.ref(`waitingNotifications/${busId}`).on('value', function(snapshot) {
+            loadStudents();
+          });
+        }
+      }
     }
 
     // Initialize map when page loads
-    window.addEventListener('load', () => {
+    window.addEventListener('load', async () => {
+      // Get bus ID first
+      busId = await getBusId();
+      if (!busId) {
+        console.error('Bus ID not found');
+        return;
+      }
+      
       setTimeout(initStudentsMap, 100);
     });
 
@@ -209,13 +437,8 @@
       let visibleCount = 0;
 
       studentCards.forEach(card => {
-        const badge = card.querySelector('.status-badge');
-        if (!badge) return;
-
-        const status = badge.classList.contains('nearby') ? 'nearby' :
-                      badge.classList.contains('waiting') ? 'waiting' :
-                      badge.classList.contains('onboard') ? 'onboard' : 'all';
-
+        const status = card.getAttribute('data-status');
+        
         if (filter === 'all' || filter === status) {
           card.style.display = 'block';
           visibleCount++;
@@ -233,14 +456,10 @@
     }
 
     function refreshStudentList() {
-      alert('Refreshing student list...');
-      // Implement Firebase fetch logic here
-      location.reload();
+      loadStudents();
     }
 
-    // Initial count
-    document.getElementById('studentCount').textContent =
-      document.querySelectorAll('.student-card').length;
+    // Initial count will be set by loadStudents()
   </script>
 
   <style>
@@ -327,6 +546,11 @@
 
     .actions-section {
       border-top: 1px solid #2d3645;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
   </style>
 </body>
